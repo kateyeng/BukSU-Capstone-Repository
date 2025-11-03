@@ -1,28 +1,57 @@
+// src/App.jsx
 import { useEffect, useState } from "react";
 import LoginForm from "./Login/LoginForm";
 import SignUpForm from "./Login/SignUpForm";
 import ForgotPassword from "./Login/ForgotPassword";
 import Code from "./Login/Code";
 import ResetPassword from "./Login/ResetPassword";
-import Dashboard from "./Admin/Dashboard";
+
+import Dashboard from "./Teacher/Dashboard";
+import Browse from "./Teacher/Browse";
+import Upload from "./Teacher/Upload";
+
 import "./index.css";
 
 export default function App() {
   const [view, setView] = useState("login");
   const [emailForReset, setEmailForReset] = useState("");
 
-  // When entering/leaving dashboard, toggle a class on <body>
+  // Apply dashboard layout styles to dashboard-like pages
   useEffect(() => {
-    document.body.classList.toggle("dashboard-mode", view === "dashboard");
+    const isDashLike = view === "dashboard" || view === "browse" || view === "upload";
+    document.body.classList.toggle("dashboard-mode", isDashLike);
     return () => document.body.classList.remove("dashboard-mode");
   }, [view]);
 
-  // Render the dashboard WITHOUT the narrow wrapper
+  // ---- In-app "routes" (no router library) ----
   if (view === "dashboard") {
-    return <Dashboard onLogout={() => setView("login")} />;
+    return (
+      <Dashboard
+        onLogout={() => setView("login")}
+        onNavigate={(dest) => setView(dest)}   // "dashboard" | "browse" | "upload"
+      />
+    );
   }
 
-  // Auth screens (centered/narrow)
+  if (view === "browse") {
+    return (
+      <Browse
+        onBack={() => setView("dashboard")}
+        onNavigate={(dest) => setView(dest)}
+      />
+    );
+  }
+
+  if (view === "upload") {
+    return (
+      <Upload
+        onBack={() => setView("dashboard")}
+        onNavigate={(dest) => setView(dest)}
+      />
+    );
+  }
+
+  // ---- Auth screens ----
   return (
     <div style={{ width: "100%", maxWidth: 540, margin: "0 auto" }}>
       <div className="header">
