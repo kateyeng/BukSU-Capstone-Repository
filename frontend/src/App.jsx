@@ -1,28 +1,76 @@
 import { useEffect, useState } from "react";
+import api from "./api/axios.js";
+
 import LoginForm from "./Login/LoginForm";
 import SignUpForm from "./Login/SignUpForm";
 import ForgotPassword from "./Login/ForgotPassword";
 import Code from "./Login/Code";
 import ResetPassword from "./Login/ResetPassword";
-import Dashboard from "./Admin/Dashboard";
+
 import "./index.css";
+import Dashboard from "./teacher/Dashboard";
+import Browse from "./teacher/Browse";
+import Upload from "./teacher/Upload";
 
 export default function App() {
   const [view, setView] = useState("login");
-  const [emailForReset, setEmailForReset] = useState("");
+  const [email, setEmail] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [code, setCode] = useState("");
+  const [user, setUser] = useState(null);
 
-  // When entering/leaving dashboard, toggle a class on <body>
+  //  Hydrate session on load
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await api.get("/api/auth/me");
+        setUser(data.user);
+        if (data.user.role === "teacher" || data.user.role === "admin") {
+          setView("dashboard");
+        } else {
+          setView("login"); // students stay on login or public browse
+        }
+      } catch (error) {
+         setUser(null);
+      }
+      
+    })();
+  }, []);
+
+  //  Handle successful login
+  const handleLoginSuccess = (u) => {
+    setUser(u);
+    if (u.role === "teacher" || u.role === "admin") {
+      setView("dashboard");
+    } else {
+      // Students shouldn't access teacher dashboard
+      alert("Student accounts do not have dashboard access.");
+      setView("login");
+    }
+  };
+
+  // Toggle body styles when dashboard active
   useEffect(() => {
     document.body.classList.toggle("dashboard-mode", view === "dashboard");
     return () => document.body.classList.remove("dashboard-mode");
   }, [view]);
 
-  // Render the dashboard WITHOUT the narrow wrapper
+  //  Teacher/Admin Dashboard
   if (view === "dashboard") {
-    return <Dashboard onLogout={() => setView("login")} />;
+    return (
+      <Dashboard
+        onLogout={async () => {
+          await api.post("/api/auth/logoutUser");
+          console.log("Successfully logout!");
+          setUser(null);
+          setView("login");
+        }}
+        onNavigate={(next) => setView(next)}
+      />
+    );
   }
 
-  // Auth screens (centered/narrow)
+  //  Login & Auth pages
   return (
     <div style={{ width: "100%", maxWidth: 540, margin: "0 auto" }}>
       <div className="header">
@@ -46,37 +94,48 @@ export default function App() {
           </div>
         </div>
 
+        {/*  LOGIN */}
         {view === "login" && (
           <LoginForm
             onSwitch={() => setView("signup")}
             onForgot={() => setView("forgot")}
-            onSuccess={() => setView("dashboard")}
+            onSuccess={handleLoginSuccess}
           />
         )}
 
+        {/* SIGNUP */}
         {view === "signup" && <SignUpForm onSwitch={() => setView("login")} />}
 
+        {/* FORGOT PASSWORD */}
         {view === "forgot" && (
           <ForgotPassword
             onBack={() => setView("login")}
-            onEmailSubmitted={(email) => {
-              setEmailForReset(email);
+            onEmailSubmitted={(email, resetToken) => {
+              setEmail(email);
+              setResetToken(resetToken);
               setView("code");
             }}
           />
         )}
 
+        {/* VERIFY CODE */}
         {view === "code" && (
           <Code
-            email={emailForReset}
+            email={email}
             onBack={() => setView("forgot")}
-            onVerified={() => setView("reset")}
+            onVerified={(enteredCode) => {
+              setCode(enteredCode);
+              setView("reset");
+            }}
           />
         )}
 
+        {/* RESET PASSWORD */}
         {view === "reset" && (
           <ResetPassword
-            email={emailForReset}
+            email={email}
+            resetToken={resetToken}
+            code={code}
             onBack={() => setView("code")}
             onResetDone={() => setView("login")}
           />

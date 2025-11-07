@@ -1,7 +1,23 @@
-// src/Admin/Dashboard.jsx
 import "./../index.css";
+import axios from "../api/axios.js";
 
 export default function Dashboard({ onLogout }) {
+  const handleLogout = async () => {
+    try {
+      const response = await axios.post("/api/auth/logoutUser");
+      alert(response.data.message || "Logged out successfully!");
+
+      // Clear any user data stored locally (optional)
+      localStorage.removeItem("user");
+
+      // Switch back to login view
+      if (onLogout) onLogout();
+    } catch (error) {
+      console.error(" Logout failed:", error.response?.data || error.message);
+      alert(error.response?.data?.message || "Logout failed. Please try again.");
+    }
+  };
+
   return (
     <div className="dashboard">
       {/* Navbar */}
@@ -22,7 +38,9 @@ export default function Dashboard({ onLogout }) {
           <a href="#">Contact</a>
         </nav>
 
-        <button className="logout-btn" onClick={onLogout}>Logout</button>
+        <button className="logout-btn" onClick={handleLogout}>
+          Logout
+        </button>
       </header>
 
       {/* Hero Section */}

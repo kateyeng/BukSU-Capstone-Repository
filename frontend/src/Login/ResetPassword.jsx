@@ -1,6 +1,7 @@
 import { useState } from "react";
+import axios from "axios";
 
-export default function ResetPassword({ email, onBack, onResetDone }) {
+export default function ResetPassword({ email, resetToken, code, onBack, onResetDone }) {
   const [form, setForm] = useState({
     password: "",
     confirmPassword: "",
@@ -10,7 +11,7 @@ export default function ResetPassword({ email, onBack, onResetDone }) {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (form.password.length < 6) {
@@ -23,11 +24,26 @@ export default function ResetPassword({ email, onBack, onResetDone }) {
       return;
     }
 
-    // TODO: API call to save new password
-    // await api.resetPassword(email, form.password);
+    // 🧩 Debug log — this helps confirm what’s being sent
+    console.log("🔍 Sending reset request:", {
+      resetToken,
+      code,
+      newPassword: form.password,
+    });
 
-    alert("Password reset successfully!");
-    onResetDone();
+    try {
+      const res = await axios.post("http://localhost:3000/api/auth/resetPassword", {
+        resetToken,
+        code,
+        newPassword: form.password,
+      });
+
+      alert("✅ " + res.data.message);
+      onResetDone();
+    } catch (err) {
+      console.error("❌ Reset failed:", err.response?.data);
+      alert(err.response?.data?.message || "Reset failed");
+    }
   };
 
   return (
@@ -42,56 +58,28 @@ export default function ResetPassword({ email, onBack, onResetDone }) {
         Set a new password for <b>{email}</b>
       </div>
 
-      {/* New Password */}
       <div>
         <label>New Password</label>
-        <div className="input-box has-icon">
-          <span className="input-icon">
-            <svg
-              viewBox="0 0 24 24"
-              width="18"
-              height="18"
-              fill="currentColor"
-            >
-              <path d="M7.5 10.5V7a4.5 4.5 0 0 1 9 0v3.5h-9z" />
-              <path d="M5 10.5A1.5 1.5 0 0 0 3.5 12v7A1.5 1.5 0 0 0 5 20.5h14A1.5 1.5 0 0 0 20.5 19v-7A1.5 1.5 0 0 0 19 10.5H5z" />
-            </svg>
-          </span>
-          <input
-            type="password"
-            name="password"
-            placeholder="Enter new password"
-            value={form.password}
-            onChange={handleChange}
-            required
-          />
-        </div>
+        <input
+          type="password"
+          name="password"
+          placeholder="Enter new password"
+          value={form.password}
+          onChange={handleChange}
+          required
+        />
       </div>
 
-      {/* Confirm Password */}
       <div>
         <label>Re-enter Password</label>
-        <div className="input-box has-icon">
-          <span className="input-icon">
-            <svg
-              viewBox="0 0 24 24"
-              width="18"
-              height="18"
-              fill="currentColor"
-            >
-              <path d="M7.5 10.5V7a4.5 4.5 0 0 1 9 0v3.5h-9z" />
-              <path d="M5 10.5A1.5 1.5 0 0 0 3.5 12v7A1.5 1.5 0 0 0 5 20.5h14A1.5 1.5 0 0 0 20.5 19v-7A1.5 1.5 0 0 0 19 10.5H5z" />
-            </svg>
-          </span>
-          <input
-            type="password"
-            name="confirmPassword"
-            placeholder="Re-enter your password"
-            value={form.confirmPassword}
-            onChange={handleChange}
-            required
-          />
-        </div>
+        <input
+          type="password"
+          name="confirmPassword"
+          placeholder="Re-enter your password"
+          value={form.confirmPassword}
+          onChange={handleChange}
+          required
+        />
       </div>
 
       <button className="btn-primary" type="submit">

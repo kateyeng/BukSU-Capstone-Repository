@@ -1,16 +1,48 @@
-// src/Login/LoginForm.jsx
-import { useState } from "react";
+import { useState, useRef } from "react";
+import api from "../api/axios.js"; // use configured axios instance
+import ReCAPTCHA from "react-google-recaptcha";
 
 /* eslint-disable react/prop-types */
 export default function LoginForm({ onSwitch, onForgot, onSuccess }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const recaptchaRef = useRef(null);
 
-  const handleSubmit = (e) => {
+  // Google Login Handler (use backend port, not frontend)
+  const handleGoogleLogin = () => {
+    window.location.href = `${import.meta.env.VITE_API_URL}/api/auth/google`;
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) return;
-    // TODO: replace with real auth
-    onSuccess(); // -> App switches to "dashboard"
+
+    if (!email || !password) return alert("Please enter email & password");
+
+    const captchaToken = recaptchaRef.current?.getValue();
+    if (!captchaToken) return alert("Please verify CAPTCHA");
+
+    setLoading(true);
+
+    try {
+      const { data } = await api.post("/api/auth/login", {
+        email,
+        password,
+        captcha: captchaToken,
+      });
+
+      alert(data.message);
+      console.log(" Login Success:", data);
+
+      //  Pass the user data to parent component
+      if (onSuccess) onSuccess(data.user);
+    } catch (error) {
+      console.error("Login failed:", error.response?.data || error.message);
+      alert(error.response?.data?.message || "Login failed");
+    } finally {
+      setLoading(false);
+      recaptchaRef.current?.reset();
+    }
   };
 
   return (
@@ -19,11 +51,10 @@ export default function LoginForm({ onSwitch, onForgot, onSuccess }) {
       <div>
         <label>Email</label>
         <div className="input-box has-icon">
-          <span className="input-icon" aria-hidden>
-            {/* mail icon */}
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M4 6h16v12H4z" stroke="#9ca3af" strokeWidth="1.6" rx="2" />
-              <path d="M4 7l8 6 8-6" stroke="#9ca3af" strokeWidth="1.6" fill="none" />
+          <span className="input-icon">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M1.5 7.5v9A1.5 1.5 0 0 0 3 18h18a1.5 1.5 0 0 0 1.5-1.5v-9L12 12 1.5 7.5z"/>
+              <path d="M22.5 6V5.5A1.5 1.5 0 0 0 21 4H3A1.5 1.5 0 0 0 1.5 5.5V6L12 10.5 22.5 6z"/>
             </svg>
           </span>
           <input
@@ -40,11 +71,10 @@ export default function LoginForm({ onSwitch, onForgot, onSuccess }) {
       <div>
         <label>Password</label>
         <div className="input-box has-icon">
-          <span className="input-icon" aria-hidden>
-            {/* lock icon */}
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <rect x="5" y="11" width="14" height="9" rx="2" stroke="#9ca3af" strokeWidth="1.6" />
-              <path d="M8 11V8a4 4 0 118 0v3" stroke="#9ca3af" strokeWidth="1.6" />
+          <span className="input-icon">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M7.5 10.5V7a4.5 4.5 0 0 1 9 0v3.5h-9z"/>
+              <path d="M5 10.5A1.5 1.5 0 0 0 3.5 12v7A1.5 1.5 0 0 0 5 20.5h14A1.5 1.5 0 0 0 20.5 19v-7A1.5 1.5 0 0 0 19 10.5H5z"/>
             </svg>
           </span>
           <input
@@ -57,23 +87,48 @@ export default function LoginForm({ onSwitch, onForgot, onSuccess }) {
         </div>
       </div>
 
-      {/* Forgot link */}
-      <div className="text-right">
-        <button type="button" className="link" onClick={onForgot}>
+      {/* Forgot Password */}
+      <p className="text-right">
+        <button
+          type="button"
+          onClick={onForgot}
+          style={{ background: "none", color: "#1e40af" }}
+        >
           Forgot Password?
         </button>
-      </div>
+      </p>
 
-      {/* CTA */}
-      <button type="submit" className="btn-primary">Login</button>
+      <ReCAPTCHA
+        ref={recaptchaRef}
+        sitekey="6LdFxfYrAAAAADsbgpm8W27Zgt-xK3dxYvSZtNeK"
+      />
 
-      {/* Switch */}
-      <div className="text-center" style={{ marginTop: 10 }}>
+      {/* Login Button */}
+      <button className="btn-primary" type="submit" disabled={loading}>
+        {loading ? "Logging in..." : "Login"}
+      </button>
+
+      {/*  Google Login Button (fixed) */}
+      <button type="button" onClick={handleGoogleLogin} className="google-btn">
+        <img
+          src="https://developers.google.com/identity/images/g-logo.png"
+          alt="Google logo"
+          className="google-logo"
+        />
+        <span>Continue with Google</span>
+      </button>
+
+      {/* Switch to Register */}
+      <p className="text-center">
         Don’t have an account?{" "}
-        <button type="button" className="link" onClick={onSwitch}>
-          Sign Up
+        <button
+          type="button"
+          onClick={onSwitch}
+          style={{ background: "none", color: "#1e40af" }}
+        >
+          Register
         </button>
-      </div>
+      </p>
     </form>
   );
 }

@@ -1,26 +1,46 @@
 import { useState } from "react";
+import axios from "axios";
 
 export default function Code({ email, onBack, onVerified }) {
   const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (code.trim().length < 6) {
       alert("Please enter the 6-digit code.");
       return;
     }
-    // TODO: verify code via backend
-    onVerified(code);
+
+    try {
+      setLoading(true);
+      setMessage("");
+
+      // ✅ Verify the code through backend
+      const response = await axios.post("http://localhost:3000/api/auth/verifyCode", {
+        email,
+        code,
+      });
+
+      setMessage(response.data.message || "Code verified successfully!");
+      onVerified(code); // Pass verified code back to App.jsx
+    } catch (error) {
+      console.error("❌ Code verification failed:", error);
+      setMessage(error.response?.data?.message || "Invalid or expired code.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <form className="form" onSubmit={handleSubmit}>
-    <div style={{ marginBottom: "10px" }}>
+      <div style={{ marginBottom: "10px" }}>
         <button type="button" className="link" onClick={onBack}>
-            ← Back to Login
+          ← Back to Login
         </button>
-    </div>
-
+      </div>
 
       <div style={{ marginBottom: 6, color: "#555", fontSize: 14 }}>
         Enter the 6-digit code sent to <b>{email}</b>
@@ -39,9 +59,15 @@ export default function Code({ email, onBack, onVerified }) {
         />
       </div>
 
-      <button className="btn-primary" type="submit">
-        Verify Code
+      <button className="btn-primary" type="submit" disabled={loading}>
+        {loading ? "Verifying..." : "Verify Code"}
       </button>
+
+      {message && (
+        <p className="text-center" style={{ marginTop: 10 }}>
+          {message}
+        </p>
+      )}
 
       <p className="text-center">
         Didn’t get it?{" "}
