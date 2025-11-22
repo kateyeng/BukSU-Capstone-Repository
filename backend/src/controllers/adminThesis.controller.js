@@ -22,7 +22,7 @@ export async function setThesisStatus(req, res) {
     const { id } = req.params;
     const { status, reason } = req.body;
 
-    if (!['pending','approved','rejected'].includes(status)) {
+    if (!['pending', 'approved', 'rejected'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status' });
     }
 
@@ -78,7 +78,7 @@ export async function editThesis(req, res) {
     await thesis.save();
     const after = thesis.toObject();
 
-    const keys = ['title','year','category','abstract','keywords','authors'];
+    const keys = ['title', 'year', 'category', 'abstract', 'keywords', 'authors'];
     const changes = {};
     for (const k of keys) {
       if (JSON.stringify(before[k] ?? null) !== JSON.stringify(after[k] ?? null)) {

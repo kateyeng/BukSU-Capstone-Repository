@@ -3,66 +3,105 @@ import express from "express";
 import { protect, requireRole } from "../middleware/auth.js";
 import User from "../models/user.model.js";
 import Project from "../models/project.model.js";
-import { setThesisStatus, editThesis } from "../controllers/adminThesis.controller.js";
 
 const router = express.Router();
 
 // All admin routes require admin auth
 router.use(protect, requireRole("admin"));
 
-/* ========== USERS ========== */
+/* ========== GET /api/admin/users ========== */
+/**
+ * Returns a list of users for the admin panel.
+ * Response shape: { users: [...] }
+ */
 router.get("/users", async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 500, 1000);
-  const users = await User.find().select("-password").sort({ createdAt: -1 }).limit(limit);
+
+  const users = await User.find()
+    .select("-password")
+    .sort({ createdAt: -1 })
+    .limit(limit);
+
   res.json({ users });
 });
 
-router.patch("/users/:id/role", async (req, res) => {
-  const { role } = req.body;
-  if (!["student", "teacher", "admin"].includes(role)) {
-    return res.status(400).json({ message: "Invalid role" });
-  }
-  const user = await User.findByIdAndUpdate(req.params.id, { role }, { new: true }).select("-password");
+/* ========== UPDATE USER BASIC INFO ========== */
+/**
+ * PATCH /api/admin/users/:id
+ * Body: { fullName?, email? }
+ */
+router.patch("/users/:id", async (req, res) => {
+  const { fullName, email } = req.body;
+
+  const update = {};
+  if (typeof fullName === "string") update.fullName = fullName;
+  if (typeof email === "string") update.email = email;
+
+  const user = await User.findByIdAndUpdate(req.params.id, update, {
+    new: true,
+  }).select("-password");
+
   if (!user) return res.status(404).json({ message: "User not found" });
-  res.json({ message: "Role updated", user });
+  res.json({ message: "User updated", user });
 });
 
-/* ========== THESIS (Projects) ========== */
-// List all thesis/projects for moderation
-router.get("/thesis", async (req, res) => {
-  const limit = Math.min(Number(req.query.limit) || 500, 1000);
-  const thesis = await Project.find({}, "title category year authors status createdAt submitterEmail owner")
-    .sort({ createdAt: -1 })
-    .limit(limit);
-  res.json({ thesis });
-});
+/* ========== DELETE USER ========== */
+/**
+ * DELETE /api/admin/users/:id
+ */
+router.delete("/users/:id", async (req, res) => {
+  // Optional safety: prevent deleting your own account
+  if (String(req.user._id) === String(req.params.id)) {
+    return res
+      .status(400)
+      .json({ message: "You cannot delete your own account." });
+  }
 
-// ✅ Use controller handlers that send emails & return { emailStatus }
-router.patch("/thesis/:id/status", setThesisStatus);
-router.patch("/thesis/:id", editThesis);
+  const user = await User.findByIdAndDelete(req.params.id);
+  if (!user) return res.status(404).json({ message: "User not found" });
 
-// Delete a thesis
-router.delete("/thesis/:id", async (req, res) => {
-  const doc = await Project.findByIdAndDelete(req.params.id);
-  if (!doc) return res.status(404).json({ message: "Not found" });
-  res.json({ message: "Deleted" });
+  res.json({ message: "User deleted" });
 });
 
 /* ========== METRICS (Dashboard) ========== */
+/**
+ * GET /api/admin/metrics
+ */
 router.get("/metrics", async (_req, res) => {
-  const [projects, users, viewsAgg, pending, approved] = await Promise.all([
+  const [
+    projects,
+    users,
+    viewsAgg,
+    pending,
+    approved,
+    rejected,
+    usersByRoleAgg,
+  ] = await Promise.all([
     Project.countDocuments(),
     User.countDocuments(),
     Project.aggregate([{ $group: { _id: null, views: { $sum: "$views" } } }]),
     Project.countDocuments({ status: "pending" }),
     Project.countDocuments({ status: "approved" }),
+    Project.countDocuments({ status: "rejected" }),
+    User.aggregate([{ $group: { _id: "$role", count: { $sum: 1 } } }]),
   ]);
+
+  const totalViews = viewsAgg[0]?.views ?? 0;
+
+  // Normalize for all possible roles from your schema
+  const usersByRole = { guest: 0, student: 0, teacher: 0, admin: 0 };
+  usersByRoleAgg.forEach((r) => {
+    usersByRole[r._id] = r.count;
+  });
+
   res.json({
     projects,
     users,
-    totalViews: viewsAgg[0]?.views ?? 0,
+    totalViews,
     pending,
     approved,
+    rejected,
+    usersByRole,
   });
 });
 

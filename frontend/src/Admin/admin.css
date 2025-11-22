@@ -1,0 +1,418 @@
+.admin-layout {
+    display: flex;
+    min-height: 100vh;
+    background: #f5f5f5;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+}
+
+.admin-sidebar {
+    width: 240px;
+    background: #111827;
+    color: #f9fafb;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+}
+
+.admin-logo {
+    margin-bottom: 2rem;
+    font-weight: 700;
+    font-size: 1.25rem;
+}
+
+.admin-nav {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.admin-nav-link {
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    color: #e5e7eb;
+    font-size: 0.95rem;
+}
+
+.admin-nav-link:hover {
+    background: #1f2937;
+}
+
+.admin-nav-link-active {
+    background: #2563eb;
+    color: #f9fafb;
+}
+
+.admin-logout-btn {
+    margin-top: 1rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    background: #ef4444;
+    color: #f9fafb;
+    font-size: 0.9rem;
+}
+
+.admin-logout-btn:hover {
+    opacity: 0.9;
+}
+
+.admin-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.admin-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.admin-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.admin-user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.admin-role-pill {
+    padding: 0.2rem 0.6rem;
+    background: #d1fae5;
+    color: #065f46;
+    border-radius: 999px;
+    font-size: 0.8rem;
+}
+
+.admin-content {
+    padding: 1.5rem;
+}
+
+.admin-dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.admin-heading {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.admin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+}
+
+.admin-grid-large {
+    margin-top: 0.5rem;
+}
+
+.admin-card {
+    background: #ffffff;
+    border-radius: 0.75rem;
+    padding: 1rem 1.25rem;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.admin-card-small {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.admin-card-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.admin-stat-label {
+    font-size: 0.85rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.admin-stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.admin-chart {
+    width: 100%;
+    height: 260px;
+}
+
+.admin-empty {
+    font-size: 0.9rem;
+    color: #9ca3af;
+    text-align: center;
+    padding-top: 3rem;
+}
+
+.admin-error {
+    color: #b91c1c;
+}
+
+/* Role tag in Users table */
+.admin-role-pill-cell {
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+}
+
+.admin-role-pill-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+}
+
+/* per-role colors */
+.admin-role-pill-tag.role-guest {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.admin-role-pill-tag.role-student {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.admin-role-pill-tag.role-teacher {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.admin-role-pill-tag.role-admin {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+/* Icon buttons in Actions column */
+.admin-icon-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    margin-left: 0.25rem;
+    padding: 0.15rem;
+    vertical-align: middle;
+}
+
+.admin-icon-edit {
+    color: #3b82f6;
+}
+
+.admin-icon-delete {
+    color: #ef4444;
+}
+
+.admin-icon-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+/* ===== Modal for Edit User ===== */
+.admin-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 40;
+}
+
+.admin-modal {
+    background: #ffffff;
+    border-radius: 0.75rem;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+    width: 100%;
+    max-width: 420px;
+    padding: 1.5rem 1.75rem;
+}
+
+.admin-modal-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.admin-modal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.admin-modal-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+}
+
+.admin-modal-field span {
+    color: #4b5563;
+}
+
+.admin-modal-field input,
+.admin-modal-field select {
+    border-radius: 0.5rem;
+    border: 1px solid #d1d5db;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
+    outline: none;
+}
+
+.admin-modal-field input:focus,
+.admin-modal-field select:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 1px #2563eb20;
+}
+
+.admin-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+/* primary button variant */
+.admin-btn-primary {
+    background: #2563eb;
+    color: #f9fafb;
+}
+
+/* ===== Users table layout ===== */
+.admin-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.admin-table th,
+.admin-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.admin-table th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    color: #6b7280;
+}
+
+.admin-table tbody tr:nth-child(even) {
+    background: #f9fafb;
+}
+
+/* actions column with small icons */
+.admin-actions {
+    text-align: center;
+    white-space: nowrap;
+}
+
+.icon-btn {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-btn svg {
+    font-size: 16px;
+}
+
+.icon-btn:hover svg {
+    transform: scale(1.1);
+}
+
+/* Edit panel occupies whole width under the table */
+.admin-edit-panel {
+    margin-top: 16px;
+    width: 100%;
+}
+
+.admin-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.admin-form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.admin-edit-form label {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.85rem;
+    color: #374151;
+}
+
+.admin-edit-form input,
+.admin-edit-form select {
+    margin-top: 4px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    border: 1px solid #d1d5db;
+    font-size: 0.9rem;
+}
+
+.admin-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.btn-primary,
+.btn-secondary {
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background: #2563eb;
+    color: white;
+}
+
+.btn-secondary {
+    background: #e5e7eb;
+    color: #111827;
+}

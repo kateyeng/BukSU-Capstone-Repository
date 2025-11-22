@@ -39,6 +39,10 @@ import TeacherDashboard from "./teacher/Dashboard.jsx";
 import TeacherThesis from "./teacher/Thesis.jsx";
 import TeacherUsers from "./teacher/Users.jsx";
 
+/* ===== Admin (login required) ===== */
+import AdminLayout from "./Admin/adminLayout.jsx";
+import AdminDashboard from "./Admin/adminDashboard.jsx";
+import AdminUsers from "./Admin/adminUsers.jsx";
 
 /* =================== OAUTH NOTICE =================== */
 function UseOauthNotice() {
@@ -57,8 +61,15 @@ function UseOauthNotice() {
       const shouldVerify = isGuest || notice === "verify";
 
       if (shouldVerify) {
-        alert("Your account is being verified. Please wait and try again later!");
-        console.log("[OAuth] Login (pending verification). isNew:", isNew, "role:", role);
+        alert(
+          "Your account is being verified. Please wait and try again later!"
+        );
+        console.log(
+          "[OAuth] Login (pending verification). isNew:",
+          isNew,
+          "role:",
+          role
+        );
       } else {
         alert("Logged in successfully");
         console.log("[OAuth] Google login success role:", role);
@@ -265,11 +276,6 @@ function TeacherUsersPage({ onLogout }) {
   return <TeacherUsers onLogout={onLogout} />;
 }
 
-/* ---------- ADMIN wrappers ---------- */
-function AdminHome({ onLogout }) {
-  return <AdminDashboard onLogout={onLogout} />;
-}
-
 /* ---------- Auth wrappers ---------- */
 function LoginPage({ setUser }) {
   const nav = useNavigate();
@@ -383,7 +389,7 @@ export default function App() {
         const err = await res.json().catch(() => null);
         alert(
           err?.message ||
-            "Logout failed on server, but you have been signed out locally."
+          "Logout failed on server, but you have been signed out locally."
         );
       }
     } catch (e) {
@@ -522,10 +528,14 @@ export default function App() {
           path="/admin"
           element={
             <RequireRole user={user} roles={["admin"]}>
-              <AdminHome onLogout={logout} />
+              <AdminLayout currentUser={user} onLogout={logout} />
             </RequireRole>
           }
-        />
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="users" element={<AdminUsers />} />
+        </Route>
 
         {/* Fallback → public home */}
         <Route path="*" element={<Navigate to="/" replace />} />

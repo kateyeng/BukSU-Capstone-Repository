@@ -32,7 +32,7 @@ const userSchema = new Schema(
       enum: ['guest', 'student', 'teacher', 'admin'],
       default: 'guest',
     },
-    
+
     // OAuth fields
     googleId: {
       type: String,
@@ -88,7 +88,7 @@ const userSchema = new Schema(
         },
       }
     ],
-    
+
   },
   {
     timestamps: true,

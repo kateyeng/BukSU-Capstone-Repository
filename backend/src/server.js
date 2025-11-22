@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import publicRoutes from "./routes/public.routes.js";
 import studentRoutes from "./routes/student.routes.js";
-import teacherRoutes from "./routes/teacher.routes.js"; 
+import teacherRoutes from "./routes/teacher.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import passport from "passport";
