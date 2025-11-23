@@ -33,6 +33,23 @@ const userSchema = new Schema(
       default: 'guest',
     },
 
+    // 🔒 admin edit lock (for 2-phase locking in AdminUsers)
+    editLock: {
+      lockedBy: {
+        type: Schema.Types.ObjectId,
+        ref: 'user',
+        default: null,
+      },
+      lockedAt: {
+        type: Date,
+        default: null,
+      },
+      expiresAt: {
+        type: Date,
+        default: null,
+      },
+    },
+
     // OAuth fields
     googleId: {
       type: String,
@@ -81,14 +98,16 @@ const userSchema = new Schema(
     bookmarks: [
       {
         project: {
-          type: Schema.Types.ObjectId, ref: "project", required: true
+          type: Schema.Types.ObjectId,
+          ref: 'project',
+          required: true,
         },
         addedAt: {
-          type: Date, default: Date.now
+          type: Date,
+          default: Date.now,
         },
-      }
+      },
     ],
-
   },
   {
     timestamps: true,
@@ -96,7 +115,10 @@ const userSchema = new Schema(
 );
 
 // Prevent duplicate bookmarks per user
-userSchema.index({ _id: 1, "bookmarks.project": 1 }, { unique: true, sparse: true });
+userSchema.index(
+  { _id: 1, 'bookmarks.project': 1 },
+  { unique: true, sparse: true }
+);
 
 const User = model('user', userSchema);
 export default User;

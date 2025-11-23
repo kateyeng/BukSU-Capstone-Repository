@@ -534,8 +534,9 @@ export default function App() {
         >
           <Route index element={<AdminDashboard />} />
           <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="users" element={<AdminUsers />} />
+          <Route path="users" element={<AdminUsers currentUser={user} />} />
         </Route>
+
 
         {/* Fallback → public home */}
         <Route path="*" element={<Navigate to="/" replace />} />

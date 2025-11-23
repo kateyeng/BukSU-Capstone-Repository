@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
 
-/* guest removed here */
 const ROLE_OPTIONS = ["student", "teacher", "admin"];
 
 /* ===== Inline SVG icons (no emojis) ===== */
@@ -41,21 +40,20 @@ function TrashIcon(props) {
     );
 }
 
-export default function AdminUsers() {
+export default function AdminUsers({ currentUser }) {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState("");
     const [busyId, setBusyId] = useState(null);
 
-    // edit modal state
     const [editingUser, setEditingUser] = useState(null);
     const [editName, setEditName] = useState("");
     const [editEmail, setEditEmail] = useState("");
     const [editRole, setEditRole] = useState("student");
 
+    /* ---- load users ---- */
     async function fetchUsers() {
         try {
-            setLoading(true);
             const res = await api.get("/api/admin/users", { withCredentials: true });
             setUsers(res.data.users || []);
             setErr("");
@@ -67,25 +65,69 @@ export default function AdminUsers() {
     }
 
     useEffect(() => {
+        setLoading(true);
         fetchUsers();
     }, []);
 
-    function openEdit(user) {
-        setEditingUser(user);
-        setEditName(user.fullName || "");
-        setEditEmail(user.email || "");
-        // if user is guest, default select to "student"
-        const baseRole = user.role === "guest" ? "student" : user.role;
-        setEditRole(baseRole || "student");
+    // 🔁 poll every 5s so other admins see locks disappear/appear
+    useEffect(() => {
+        const id = setInterval(fetchUsers, 5000);
+        return () => clearInterval(id);
+    }, []);
+
+    /* ---- acquire lock + open modal ---- */
+    async function openEdit(user) {
+        try {
+            setBusyId(user._id);
+
+            // Ask server for the lock
+            await api.post(
+                `/api/admin/users/${user._id}/lock`,
+                {},
+                { withCredentials: true }
+            );
+
+            // Lock acquired → open modal
+            setEditingUser(user);
+            setEditName(user.fullName || "");
+            setEditEmail(user.email || "");
+            const baseRole = user.role === "guest" ? "student" : user.role;
+            setEditRole(baseRole || "student");
+        } catch (e) {
+            alert(
+                e.response?.status === 423
+                    ? "Another admin is currently editing this user."
+                    : e.response?.data?.message || "Failed to acquire edit lock."
+            );
+            // Refresh list so we show the locked state
+            fetchUsers();
+        } finally {
+            setBusyId(null);
+        }
     }
 
-    function closeEdit() {
+    /* ---- release lock + close modal ---- */
+    async function closeEdit() {
+        if (editingUser) {
+            try {
+                await api.post(
+                    `/api/admin/users/${editingUser._id}/unlock`,
+                    {},
+                    { withCredentials: true }
+                );
+                await fetchUsers();
+            } catch {
+                // ignore error; lock will expire eventually
+            }
+        }
+
         setEditingUser(null);
         setEditName("");
         setEditEmail("");
         setEditRole("student");
     }
 
+    /* ---- save changes ---- */
     async function saveEdit(e) {
         e.preventDefault();
         if (!editingUser) return;
@@ -104,14 +146,12 @@ export default function AdminUsers() {
         try {
             setBusyId(editingUser._id);
 
-            // 1) update basic info
             await api.patch(
                 `/api/admin/users/${editingUser._id}`,
                 { fullName: trimmedName, email: trimmedEmail },
                 { withCredentials: true }
             );
 
-            // 2) update role if changed
             if (role !== editingUser.role) {
                 await api.patch(
                     `/api/admin/users/${editingUser._id}/role`,
@@ -121,17 +161,19 @@ export default function AdminUsers() {
             }
 
             await fetchUsers();
-            closeEdit();
         } catch (e2) {
             alert(e2.response?.data?.message || "Failed to update user");
+            return; // don't close modal if save failed
         } finally {
             setBusyId(null);
         }
+
+        // Release lock after successful save
+        await closeEdit();
     }
 
     async function deleteUser(userId) {
         if (!window.confirm("Are you sure you want to delete this user?")) return;
-
         try {
             setBusyId(userId);
             await api.delete(`/api/admin/users/${userId}`, {
@@ -165,39 +207,54 @@ export default function AdminUsers() {
                             </tr>
                         </thead>
                         <tbody>
-                            {users.map((u) => (
-                                <tr key={u._id}>
-                                    <td>{u.fullName}</td>
-                                    <td>{u.email}</td>
-                                    <td className="admin-role-pill-cell">
-                                        <span className={`admin-role-pill-tag role-${u.role}`}>
-                                            {u.role}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {u.createdAt &&
-                                            new Date(u.createdAt).toLocaleDateString("en-PH")}
-                                    </td>
-                                    <td className="admin-table-actions">
-                                        <button
-                                            className="admin-icon-btn admin-icon-edit"
-                                            title="Edit user"
-                                            disabled={busyId === u._id}
-                                            onClick={() => openEdit(u)}
-                                        >
-                                            <EditIcon />
-                                        </button>
-                                        <button
-                                            className="admin-icon-btn admin-icon-delete"
-                                            title="Delete user"
-                                            disabled={busyId === u._id}
-                                            onClick={() => deleteUser(u._id)}
-                                        >
-                                            <TrashIcon />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
+                            {users.map((u) => {
+                                const lock = u.editLock;
+                                const isLockedByOther =
+                                    lock &&
+                                    lock.lockedBy &&
+                                    currentUser &&
+                                    lock.lockedBy !== currentUser._id;
+
+                                return (
+                                    <tr key={u._id}>
+                                        <td>{u.fullName}</td>
+                                        <td>{u.email}</td>
+                                        <td className="admin-role-pill-cell">
+                                            <span className={`admin-role-pill-tag role-${u.role}`}>
+                                                {u.role}
+                                            </span>
+                                            {isLockedByOther && (
+                                                <span className="admin-lock-tag">Editing…</span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            {u.createdAt &&
+                                                new Date(u.createdAt).toLocaleDateString("en-PH")}
+                                        </td>
+                                        <td className="admin-table-actions">
+                                            {/* 🔒 If another admin holds the lock, hide the Edit icon */}
+                                            {!isLockedByOther && (
+                                                <button
+                                                    className="admin-icon-btn admin-icon-edit"
+                                                    title="Edit user"
+                                                    disabled={busyId === u._id}
+                                                    onClick={() => openEdit(u)}
+                                                >
+                                                    <EditIcon />
+                                                </button>
+                                            )}
+                                            <button
+                                                className="admin-icon-btn admin-icon-delete"
+                                                title="Delete user"
+                                                disabled={busyId === u._id}
+                                                onClick={() => deleteUser(u._id)}
+                                            >
+                                                <TrashIcon />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                             {!users.length && (
                                 <tr>
                                     <td colSpan={5} style={{ textAlign: "center", padding: 16 }}>
