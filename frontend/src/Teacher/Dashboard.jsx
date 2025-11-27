@@ -1,7 +1,7 @@
 // src/teacher/Dashboard.jsx
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import "./admin.css";
+import "./teacher.css";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 

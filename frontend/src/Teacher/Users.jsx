@@ -1,42 +1,42 @@
 import { useEffect, useMemo, useState } from "react";
-import "./admin.css";
+import "./teacher.css";
 
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-export default function UsersPage(){
+export default function UsersPage() {
   const [items, setItems] = useState([]);
   const [q, setQ] = useState("");
   const [savingId, setSavingId] = useState(null);
 
-  async function load(){
-    try{
-      const res = await fetch(`${API}/api/admin/users?limit=500`, { credentials:"include" });
+  async function load() {
+    try {
+      const res = await fetch(`${API}/api/admin/users?limit=500`, { credentials: "include" });
       const json = await res.json();
       setItems(json.users || json);
-    }catch(e){ console.error(e); }
+    } catch (e) { console.error(e); }
   }
-  useEffect(()=>{ load(); }, []);
+  useEffect(() => { load(); }, []);
 
-  const filtered = useMemo(()=>{
-    return items.filter(u=>{
-      const text = `${u.fullName||u.name} ${u.email} ${u.role}`.toLowerCase();
+  const filtered = useMemo(() => {
+    return items.filter(u => {
+      const text = `${u.fullName || u.name} ${u.email} ${u.role}`.toLowerCase();
       return text.includes(q.toLowerCase());
     });
   }, [items, q]);
 
-  async function saveRole(id, role){
+  async function saveRole(id, role) {
     setSavingId(id);
-    try{
-      await fetch(`${API}/api/admin/users/${id}/role`,{
-        method:"PATCH",
-        headers:{ "Content-Type":"application/json" },
-        credentials:"include",
+    try {
+      await fetch(`${API}/api/admin/users/${id}/role`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ role }),
       });
-      setItems(prev=>prev.map(u=>u._id===id?{...u, role}:u));
-    }catch(e){ console.error(e); }
-    finally{ setSavingId(null); }
+      setItems(prev => prev.map(u => u._id === id ? { ...u, role } : u));
+    } catch (e) { console.error(e); }
+    finally { setSavingId(null); }
   }
 
   return (
@@ -51,21 +51,21 @@ export default function UsersPage(){
         </div>
 
         <div className="filters">
-          <input className="input" placeholder="Search name or email…" value={q} onChange={e=>setQ(e.target.value)} />
+          <input className="input" placeholder="Search name or email…" value={q} onChange={e => setQ(e.target.value)} />
           <button className="btn" onClick={load}>Refresh</button>
         </div>
 
         <table className="table">
           <thead>
             <tr>
-              <th style={{width:280}}>Name</th>
+              <th style={{ width: 280 }}>Name</th>
               <th>Email</th>
               <th>Role</th>
-              <th style={{width:220}}>Actions</th>
+              <th style={{ width: 220 }}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map(u=>(
+            {filtered.map(u => (
               <tr key={u._id}>
                 <td>{u.fullName || u.name || "—"}</td>
                 <td>{u.email}</td>
@@ -73,8 +73,8 @@ export default function UsersPage(){
                 <td className="actions">
                   <RoleSelect
                     value={u.role}
-                    onChange={(r)=>saveRole(u._id, r)}
-                    disabled={savingId===u._id}
+                    onChange={(r) => saveRole(u._id, r)}
+                    disabled={savingId === u._id}
                   />
                 </td>
               </tr>
@@ -89,24 +89,24 @@ export default function UsersPage(){
   );
 }
 
-function RoleSelect({ value, onChange, disabled }){
+function RoleSelect({ value, onChange, disabled }) {
   const [draft, setDraft] = useState(value);
-  useEffect(()=>setDraft(value), [value]);
+  useEffect(() => setDraft(value), [value]);
   return (
-    <div style={{display:"flex", gap:8}}>
-      <select className="select" value={draft} disabled={disabled} onChange={e=>setDraft(e.target.value)}>
+    <div style={{ display: "flex", gap: 8 }}>
+      <select className="select" value={draft} disabled={disabled} onChange={e => setDraft(e.target.value)}>
         <option value="student">student</option>
         <option value="teacher">teacher</option>
         <option value="admin">admin</option>
       </select>
-      <button className="btn primary" disabled={disabled || draft===value} onClick={()=>onChange(draft)}>
+      <button className="btn primary" disabled={disabled || draft === value} onClick={() => onChange(draft)}>
         {disabled ? "Saving…" : "Save"}
       </button>
     </div>
   );
 }
 
-function Sidebar(){
+function Sidebar() {
   return (
     <aside className="admin-sidebar">
       <div className="brand"><span className="dot" /> Admin Panel</div>
@@ -116,8 +116,8 @@ function Sidebar(){
         <a href="/admin/users" className="active">Users</a>
       </nav>
       <div className="sidebar-spacer" />
-      <button className="logout" onClick={()=>{
-        fetch(`${API}/api/auth/logout`, {method:"POST", credentials:"include"}).finally(()=>location.href="/login");
+      <button className="logout" onClick={() => {
+        fetch(`${API}/api/auth/logout`, { method: "POST", credentials: "include" }).finally(() => location.href = "/login");
       }}>Logout</button>
     </aside>
   );

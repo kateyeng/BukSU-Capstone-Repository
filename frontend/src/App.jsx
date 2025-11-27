@@ -35,9 +35,9 @@ import StudentUploads from "./student/Uploads.jsx";
 import StudentBookmarks from "./student/Bookmarks.jsx";
 
 /* ===== Teacher (login required) ===== */
-import TeacherDashboard from "./teacher/Dashboard.jsx";
-import TeacherThesis from "./teacher/Thesis.jsx";
-import TeacherUsers from "./teacher/Users.jsx";
+import TeacherDashboard from "./Teacher/Dashboard.jsx";
+import TeacherThesis from "./Teacher/Thesis.jsx";
+import TeacherUsers from "./Teacher/Users.jsx";
 
 /* ===== Admin (login required) ===== */
 import AdminLayout from "./Admin/adminLayout.jsx";
@@ -93,18 +93,25 @@ function UseOauthNotice() {
 /* =================== HELPERS =================== */
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-// Normalize roles and force unknown values to "guest"
+// SUPER-forgiving role normalizer
 const normRole = (v) => {
-  const r = String(v || "").trim().toLowerCase();
-  if (["student", "teacher", "admin"].includes(r)) return r;
+  const raw = String(v || "").trim().toLowerCase();
+  const compact = raw.replace(/\s+/g, ""); // remove spaces
+
+  if (raw.includes("admin") || compact === "admin") return "admin";
+  if (raw.includes("teach") || compact === "teacher") return "teacher";
+  if (raw.includes("stud") || compact === "student") return "student";
+
   return "guest";
 };
 
 // 🔐 Guard for private routes
-// - not logged in     -> /login
-// - wrong role        -> /  (public)
 function RequireRole({ user, roles, children }) {
   if (!user) return <Navigate to="/login" replace />;
+
+  // debug if needed:
+  // console.log("RequireRole user:", user);
+
   if (!roles.includes(user.role)) return <Navigate to="/" replace />;
   return children;
 }
@@ -260,7 +267,7 @@ function TeacherHome({ onLogout }) {
     <TeacherDashboard
       onLogout={onLogout}
       onNavigate={(dest) => {
-        if (dest === "dashboard") nav("/teacher");
+        if (dest === "dashboard") nav("/teacher"); // teacher dashboard
         else if (dest === "thesis") nav("/teacher/thesis");
         else if (dest === "users") nav("/teacher/users");
       }}
@@ -284,17 +291,17 @@ function LoginPage({ setUser }) {
       onSwitch={() => nav("/signup")}
       onForgot={() => nav("/forgot")}
       onSuccess={(userFromApi) => {
+        console.log("onSuccess user from API:", userFromApi);
+
         const role = normRole(userFromApi?.role);
         const userSafe = { ...userFromApi, role };
+        console.log("Normalized role:", role);
         setUser(userSafe);
 
-        // Redirect based on role
-        queueMicrotask(() => {
-          if (role === "admin") nav("/admin", { replace: true });
-          else if (role === "teacher") nav("/teacher", { replace: true });
-          else if (role === "student") nav("/student", { replace: true });
-          else nav("/", { replace: true }); // guest/unknown -> public
-        });
+        if (role === "admin") nav("/admin", { replace: true });
+        else if (role === "teacher") nav("/teacher", { replace: true });
+        else if (role === "student") nav("/student", { replace: true });
+        else nav("/", { replace: true });
       }}
     />
   );
@@ -395,8 +402,8 @@ export default function App() {
     } catch (e) {
       alert("Network issue — logged out locally.");
     } finally {
-      setUser(null); // back to guest
-      nav("/", { replace: true }); // public home
+      setUser(null);
+      nav("/", { replace: true });
     }
   };
 
@@ -426,6 +433,10 @@ export default function App() {
         <Route path="/signup" element={<SignUpPage />} />
         <Route
           path="/forgot"
+          element={<ForgotPage setEmail={setEmailForReset} />}
+        />
+        <Route
+          path="/forgot-password"
           element={<ForgotPage setEmail={setEmailForReset} />}
         />
         <Route path="/code" element={<CodePage email={emailForReset} />} />
@@ -536,7 +547,6 @@ export default function App() {
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="users" element={<AdminUsers currentUser={user} />} />
         </Route>
-
 
         {/* Fallback → public home */}
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { NavLink } from "react-router-dom";
 import EditThesisModal from "./EditThesisModal.jsx";
-import "./admin.css";
+import "./teacher.css";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -50,8 +50,7 @@ export default function TeacherThesisPage() {
   async function updateStatus(id, next, extra = {}) {
     const prev = items.find((i) => i._id === id);
     console.log(
-      `[TEACHER][STATUS][REQUEST] ${next.toUpperCase()} — id=${id}, title="${
-        prev?.title
+      `[TEACHER][STATUS][REQUEST] ${next.toUpperCase()} — id=${id}, title="${prev?.title
       }"`,
       extra
     );

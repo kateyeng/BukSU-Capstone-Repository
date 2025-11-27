@@ -1,10 +1,24 @@
 import { useState } from "react";
-import axios from "axios";
+import { useNavigate, useLocation } from "react-router-dom";
+import axios from "../api/axios.js";
 
-export default function Code({ email, onBack, onVerified }) {
+export default function Code({ email: emailProp, onBack, onVerified }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // allow getting email from props, location.state, or localStorage
+  const emailFromState = location.state?.email;
+  const emailFromStorage = localStorage.getItem("resetEmail") || "";
+  const email = emailProp || emailFromState || emailFromStorage;
+
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+
+  const handleBack = () => {
+    if (onBack) onBack();
+    else navigate("/login");
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,68 +32,101 @@ export default function Code({ email, onBack, onVerified }) {
       setLoading(true);
       setMessage("");
 
-      // ✅ Verify the code through backend
-      const response = await axios.post("http://localhost:3000/api/auth/verifyCode", {
+      const response = await axios.post("/api/auth/verifyCode", {
         email,
         code,
       });
 
-      setMessage(response.data.message || "Code verified successfully!");
+      setMessage(response.data?.message || "Code verified successfully!");
+
+      // keep code for reset step
       localStorage.setItem("resetCode", code);
-      onVerified(code); // Pass verified code back to App.jsx
+
+      // notify parent
+      onVerified?.(code);
+
+      // default navigation if parent not handling it
+      if (!onVerified) {
+        navigate("/reset");
+      }
     } catch (error) {
       console.error("❌ Code verification failed:", error);
-      setMessage(error.response?.data?.message || "Invalid or expired code.");
+      setMessage(error?.response?.data?.message || "Invalid or expired code.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form className="form" onSubmit={handleSubmit}>
-      <div style={{ marginBottom: "10px" }}>
-        <button type="button" className="link" onClick={onBack}>
-          ← Back to Login
-        </button>
+    <div className="auth-page">
+      {/* Header */}
+      <header className="header">
+        <h1>BukSU CoT Thesis Realm</h1>
+        <p>Verify your reset code</p>
+      </header>
+
+      {/* Card */}
+      <div className="container">
+        <div className="tabs">
+          <button className="tab active" type="button">
+            Verify Code
+          </button>
+        </div>
+
+        <form className="form" onSubmit={handleSubmit}>
+          <div style={{ marginBottom: "10px" }}>
+            <button type="button" className="link" onClick={handleBack}>
+              ← Back to Login
+            </button>
+          </div>
+
+          <div style={{ marginBottom: 6, color: "#555", fontSize: 14 }}>
+            Enter the 6-digit code sent to <b>{email}</b>
+          </div>
+
+          <div className="single-otp-box">
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="Enter your code"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+              maxLength={6}
+              required
+            />
+          </div>
+
+          <button className="btn-primary" type="submit" disabled={loading}>
+            {loading ? "Verifying..." : "Verify Code"}
+          </button>
+
+          {message && (
+            <p className="text-center" style={{ marginTop: 10 }}>
+              {message}
+            </p>
+          )}
+
+          <p className="text-center">
+            Didn’t get it?{" "}
+            <button
+              type="button"
+              className="link"
+              onClick={() => alert("Resent!")}
+            >
+              Resend
+            </button>
+          </p>
+        </form>
       </div>
 
-      <div style={{ marginBottom: 6, color: "#555", fontSize: 14 }}>
-        Enter the 6-digit code sent to <b>{email}</b>
-      </div>
-
-      <div className="single-otp-box">
-        <input
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          placeholder="Enter your code"
-          value={code}
-          onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-          maxLength={6}
-          required
-        />
-      </div>
-
-      <button className="btn-primary" type="submit" disabled={loading}>
-        {loading ? "Verifying..." : "Verify Code"}
+      <button
+        type="button"
+        className="link back-home"
+        onClick={() => navigate("/")}
+      >
+        ← Back to Home
       </button>
-
-      {message && (
-        <p className="text-center" style={{ marginTop: 10 }}>
-          {message}
-        </p>
-      )}
-
-      <p className="text-center">
-        Didn’t get it?{" "}
-        <button
-          type="button"
-          className="link"
-          onClick={() => alert("Resent!")}
-        >
-          Resend
-        </button>
-      </p>
-    </form>
+    </div>
   );
 }

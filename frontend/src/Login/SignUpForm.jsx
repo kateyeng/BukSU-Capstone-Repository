@@ -1,7 +1,53 @@
+// src/pages/SignUpPage.jsx
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "../api/axios.js";
 
-export default function SignUpForm({ onSwitch }) {
+export default function SignUpPage() {
+  const navigate = useNavigate();
+
+  const handleSwitchToLogin = () => {
+    navigate("/login");
+  };
+
+  return (
+    <div className="auth-page">
+      {/* Header */}
+      <header className="header">
+        <h1>BukSU CoT Thesis Realm</h1>
+        <p>Create your academic research account</p>
+      </header>
+
+      {/* Card */}
+      <div className="container">
+        {/* Title strip */}
+        <div className="tabs">
+          <button className="tab active" type="button">
+            Sign Up
+          </button>
+        </div>
+
+        {/* Sign Up Form with logic */}
+        <SignUpForm onSwitch={handleSwitchToLogin} />
+      </div>
+
+      {/* Back Home */}
+      <button
+        type="button"
+        className="link back-home"
+        onClick={() => navigate("/")}
+      >
+        ← Back to Home
+      </button>
+    </div>
+  );
+}
+
+/* ===========================
+   SignUpForm with full logic
+   =========================== */
+/* eslint-disable react/prop-types */
+function SignUpForm({ onSwitch }) {
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -28,13 +74,20 @@ export default function SignUpForm({ onSwitch }) {
         password: form.password,
       });
 
-      alert(response.data.message);
+      alert(response.data.message || "Registered successfully");
       console.log("✅ Success:", response.data);
 
-      if (onSwitch) onSwitch("login");
+      // after sign up, go to login page
+      onSwitch?.();
     } catch (error) {
-      console.error("❌ Registration failed:", error.response?.data || error.message);
-      alert(error.response?.data?.message || "Failed to register. Try again later.");
+      console.error(
+        "❌ Registration failed:",
+        error.response?.data || error.message
+      );
+      alert(
+        error.response?.data?.message ||
+        "Failed to register. Try again later."
+      );
     }
   };
 
@@ -122,10 +175,12 @@ export default function SignUpForm({ onSwitch }) {
         </div>
       </div>
 
+      {/* Submit */}
       <button className="btn-primary" type="submit">
         Create Account
       </button>
 
+      {/* Switch to Login */}
       <p className="text-center">
         Already have an account?{" "}
         <button
