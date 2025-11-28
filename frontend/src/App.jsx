@@ -18,7 +18,7 @@ import PublicAbout from "./Public/About.jsx";
 import PublicContact from "./Public/Contact.jsx";
 
 /* ===== Auth ===== */
-import LoginForm from "./Login/LoginForm.jsx";
+import LoginForm from "./Login/LoginForm.jsx";      // 👈 use existing file
 import SignUpForm from "./Login/SignUpForm.jsx";
 import ForgotPassword from "./Login/ForgotPassword.jsx";
 import Code from "./Login/Code.jsx";
@@ -108,9 +108,6 @@ const normRole = (v) => {
 // 🔐 Guard for private routes
 function RequireRole({ user, roles, children }) {
   if (!user) return <Navigate to="/login" replace />;
-
-  // debug if needed:
-  // console.log("RequireRole user:", user);
 
   if (!roles.includes(user.role)) return <Navigate to="/" replace />;
   return children;
@@ -267,7 +264,7 @@ function TeacherHome({ onLogout }) {
     <TeacherDashboard
       onLogout={onLogout}
       onNavigate={(dest) => {
-        if (dest === "dashboard") nav("/teacher"); // teacher dashboard
+        if (dest === "dashboard") nav("/teacher");
         else if (dest === "thesis") nav("/teacher/thesis");
         else if (dest === "users") nav("/teacher/users");
       }}
@@ -284,8 +281,10 @@ function TeacherUsersPage({ onLogout }) {
 }
 
 /* ---------- Auth wrappers ---------- */
+// This wraps your ./Login/LoginForm.jsx and handles setUser + redirect
 function LoginPage({ setUser }) {
   const nav = useNavigate();
+
   return (
     <LoginForm
       onSwitch={() => nav("/signup")}
@@ -422,7 +421,7 @@ export default function App() {
       <Routes>
         {/* ===== PUBLIC (guest) ===== */}
         <Route path="/" element={<PublicHomePage />} />
-        <Route path="/dashboard" element={<PublicHomePage />} /> {/* alias */}
+        <Route path="/dashboard" element={<PublicHomePage />} />
         <Route path="/browse" element={<PublicBrowsePage />} />
         <Route path="/details/:id" element={<PublicDetailsPage />} />
         <Route path="/about" element={<PublicAbout />} />
