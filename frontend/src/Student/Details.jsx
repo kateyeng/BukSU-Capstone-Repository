@@ -1,7 +1,7 @@
-// frontend/src/student/Details.jsx
 import { useEffect, useState } from "react";
 import "../index.css";
 import api from "../api/axios.js";
+import StudentNavbar from "./StudentNavbar.jsx";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -30,7 +30,6 @@ export default function Details({ id, onLogout, onNavigate }) {
 
         if (!id) throw new Error("Missing project id in URL");
 
-        // ✅ use the same endpoint as Public details
         const res = await api.get(`/api/publicProjects/${id}`, {
           signal: ac.signal,
         });
@@ -76,47 +75,12 @@ export default function Details({ id, onLogout, onNavigate }) {
 
   return (
     <div className="dashboard">
-      {/* ===== Student Navbar ===== */}
-      <header className="dashboard-header">
-        <div
-          className="logo-area"
-          onClick={go("dashboard")}
-          style={{ cursor: "pointer" }}
-        >
-          <div className="logo-square" />
-          <div>
-            <div className="logo-title">BukSU CoT</div>
-            <div className="logo-subtitle">Capstone Repository</div>
-          </div>
-        </div>
+      <StudentNavbar
+        onLogout={onLogout}
+        onNavigate={onNavigate}
+        active="browse"
+      />
 
-        <nav className="nav-links">
-          <a href="#" onClick={go("dashboard")}>
-            Home
-          </a>
-          <a href="#" className="active" onClick={go("browse")}>
-            Browse
-          </a>
-          <a href="#" onClick={go("upload")}>
-            Upload
-          </a>
-          <a href="#" onClick={go("about")}>
-            About
-          </a>
-          <a href="#" onClick={go("contact")}>
-            Contact
-          </a>
-          <a href="#" onClick={go("profile")}>
-            Profile
-          </a>
-        </nav>
-
-        <button className="logout-btn" onClick={onLogout}>
-          Logout
-        </button>
-      </header>
-
-      {/* ===== Details content ===== */}
       <div className="details-page">
         {loading && <p style={{ padding: "16px" }}>Loading project…</p>}
 
@@ -137,7 +101,12 @@ export default function Details({ id, onLogout, onNavigate }) {
 
               <div className="meta">
                 <div className="meta-item">
-                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    aria-hidden
+                  >
                     <path
                       fill="currentColor"
                       d="M12 12a5 5 0 1 0-5-5a5 5 0 0 0 5 5m0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5"
@@ -150,7 +119,12 @@ export default function Details({ id, onLogout, onNavigate }) {
                   </span>
                 </div>
                 <div className="meta-item">
-                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    aria-hidden
+                  >
                     <path
                       fill="currentColor"
                       d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2M5 9h14v10H5z"
@@ -160,7 +134,12 @@ export default function Details({ id, onLogout, onNavigate }) {
                 </div>
                 {proj.adviser && (
                   <div className="meta-item">
-                    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      aria-hidden
+                    >
                       <path
                         fill="currentColor"
                         d="M12 2a5 5 0 0 1 5 5c0 3.87-5 9-5 9S7 10.87 7 7a5 5 0 0 1 5-5m0 6.5A1.5 1.5 0 1 0 12 5a1.5 1.5 0 0 0 0 3z"
@@ -189,7 +168,6 @@ export default function Details({ id, onLogout, onNavigate }) {
                 {proj.abstract || "—"}
               </p>
 
-              {/* ✅ Download + Back to Browse buttons */}
               <div className="details-actions details-actions-public">
                 <a
                   className="btn-card btn-download"

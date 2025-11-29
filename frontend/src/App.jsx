@@ -1,5 +1,5 @@
 // src/App.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Routes,
   Route,
@@ -9,6 +9,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import api from "./api/axios.js";
+import toast from "react-hot-toast";
 
 /* ===== Public (guest, no login) ===== */
 import PublicDashboard from "./Public/Dashboard.jsx";
@@ -25,14 +26,14 @@ import Code from "./Login/Code.jsx";
 import ResetPassword from "./Login/ResetPassword.jsx";
 
 /* ===== Student (login required) ===== */
-import StudentDashboard from "./student/Dashboard.jsx";
-import StudentBrowse from "./student/Browse.jsx";
-import StudentDetails from "./student/Details.jsx";
-import StudentAbout from "./student/About.jsx";
-import StudentContact from "./student/Contact.jsx";
-import StudentProfile from "./student/Profile.jsx";
-import StudentUploads from "./student/Uploads.jsx";
-import StudentBookmarks from "./student/Bookmarks.jsx";
+import StudentDashboard from "./Student/Dashboard.jsx";
+import StudentBrowse from "./Student/Browse.jsx";
+import StudentDetails from "./Student/Details.jsx";
+import StudentAbout from "./Student/About.jsx";
+import StudentContact from "./Student/Contact.jsx";
+import StudentProfile from "./Student/Profile.jsx";
+import StudentUploads from "./Student/Uploads.jsx";
+import StudentBookmarks from "./Student/Bookmarks.jsx";
 
 /* ===== Teacher (login required) ===== */
 import TeacherDashboard from "./Teacher/Dashboard.jsx";
@@ -44,6 +45,7 @@ import AdminLayout from "./Admin/adminLayout.jsx";
 import AdminDashboard from "./Admin/adminDashboard.jsx";
 import AdminUsers from "./Admin/adminUsers.jsx";
 import RolePermissions from "./Admin/RolePermissions.jsx";
+import Capstone from "./Admin/Capstone.jsx"; // ✅ NEW
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -51,43 +53,48 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 function UseOauthNotice() {
   const location = useLocation();
   const navigate = useNavigate();
+  const handledSearchRef = useRef(""); // 👈 remember last handled search
 
   useEffect(() => {
-    const p = new URLSearchParams(location.search);
+    const search = location.search || "";
+    const p = new URLSearchParams(search);
     const source = p.get("source");
     const role = (p.get("role") || "").toLowerCase();
     const notice = p.get("notice");
     const isNew = p.get("isNew");
 
-    if (source === "google") {
-      const isGuest = role === "guest";
-      const shouldVerify = isGuest || notice === "verify";
+    // only handle google callbacks
+    if (source !== "google") return;
 
-      if (shouldVerify) {
-        alert(
-          "Your account is being verified. Please wait and try again later!"
-        );
-        console.log(
-          "[OAuth] Login (pending verification). isNew:",
-          isNew,
-          "role:",
-          role
-        );
-      } else {
-        alert("Logged in successfully");
-        console.log("[OAuth] Google login success role:", role);
-      }
+    // avoid double-run in StrictMode / same URL
+    if (handledSearchRef.current === search) return;
+    handledSearchRef.current = search;
 
-      // Clean query params
-      p.delete("source");
-      p.delete("role");
-      p.delete("notice");
-      p.delete("isNew");
-      navigate(
-        { pathname: location.pathname, search: p.toString() },
-        { replace: true }
+    const isGuest = role === "guest";
+    const shouldVerify = isGuest || notice === "verify";
+
+    if (shouldVerify) {
+      toast("Your account is being verified. Please wait and try again later!");
+      console.log(
+        "[OAuth] Login (pending verification). isNew:",
+        isNew,
+        "role:",
+        role
       );
+    } else {
+      toast.success("Logged in successfully");
+      console.log("[OAuth] Google login success role:", role);
     }
+
+    // Clean query params in URL
+    p.delete("source");
+    p.delete("role");
+    p.delete("notice");
+    p.delete("isNew");
+    navigate(
+      { pathname: location.pathname, search: p.toString() },
+      { replace: true }
+    );
   }, [location, navigate]);
 
   return null;
@@ -390,16 +397,16 @@ export default function App() {
 
       if (res.ok) {
         const data = await res.json().catch(() => null);
-        alert(data?.message || "Logout successfully");
+        toast.success(data?.message || "Logged out successfully");
       } else {
         const err = await res.json().catch(() => null);
-        alert(
+        toast.error(
           err?.message ||
           "Logout failed on server, but you have been signed out locally."
         );
       }
     } catch (e) {
-      alert("Network issue — logged out locally.");
+      toast.error("Network issue — logged out locally.");
     } finally {
       setUser(null);
       nav("/", { replace: true });
@@ -571,6 +578,7 @@ export default function App() {
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="users" element={<AdminUsers currentUser={user} />} />
           <Route path="permissions" element={<RolePermissions />} />
+          <Route path="capstone" element={<Capstone />} /> {/* ✅ NEW */}
         </Route>
 
         {/* Fallback → public home */}

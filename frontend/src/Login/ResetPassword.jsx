@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "../api/axios.js";
+import toast from "react-hot-toast";
 
 export default function ResetPassword({
   email: emailProp,
@@ -20,10 +21,7 @@ export default function ResetPassword({
   const emailFromState = location.state?.email;
 
   const resetToken =
-    tokenProp ||
-    tokenFromUrl ||
-    localStorage.getItem("resetToken") ||
-    "";
+    tokenProp || tokenFromUrl || localStorage.getItem("resetToken") || "";
   const email =
     emailProp ||
     emailFromUrl ||
@@ -39,7 +37,7 @@ export default function ResetPassword({
 
   useEffect(() => {
     if (!code) {
-      alert("Please verify the code first.");
+      toast.error("Please verify the code first.");
       handleBack();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -52,15 +50,15 @@ export default function ResetPassword({
     e.preventDefault();
 
     if (!resetToken) {
-      alert("Missing reset token. Open the reset link again.");
+      toast.error("Missing reset token. Open the reset link again.");
       return;
     }
     if (form.password.length < 6) {
-      alert("Password must be at least 6 characters.");
+      toast.error("Password must be at least 6 characters.");
       return;
     }
     if (form.password !== form.confirmPassword) {
-      alert("Passwords do not match!");
+      toast.error("Passwords do not match!");
       return;
     }
 
@@ -71,12 +69,23 @@ export default function ResetPassword({
     };
 
     try {
-      const res = await axios.post("/api/auth/resetPassword", payload, {
+      const resetPromise = axios.post("/api/auth/resetPassword", payload, {
         headers: { "Content-Type": "application/json" },
         withCredentials: true,
       });
 
-      alert(res.data?.message || "Password reset successfully");
+      await toast.promise(
+        resetPromise,
+        {
+          loading: "Resetting password...",
+          success: (res) =>
+            res.data?.message || "Password reset successfully!",
+          error: (err) =>
+            err?.response?.data?.message ||
+            "Reset failed. Please check your code.",
+        },
+        { duration: 3000 }
+      );
 
       // Cleanup
       localStorage.removeItem("resetToken");
@@ -89,7 +98,6 @@ export default function ResetPassword({
         navigate("/login");
       }
     } catch (err) {
-      alert(err?.response?.data?.message || "Reset failed");
       console.error("❌ Reset failed:", err?.response?.data || err);
     }
   };

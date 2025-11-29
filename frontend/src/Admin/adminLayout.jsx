@@ -1,4 +1,4 @@
-// src/Admin/adminLayout.jsx
+// src/Admin/AdminLayout.jsx
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import "./admin.css";
 
@@ -37,7 +37,6 @@ export default function AdminLayout({ currentUser, onLogout }) {
                         Users
                     </NavLink>
 
-                    {/* 👉 NEW: Role Permissions navigation */}
                     <NavLink
                         to="/admin/permissions"
                         className={({ isActive }) =>
@@ -45,6 +44,16 @@ export default function AdminLayout({ currentUser, onLogout }) {
                         }
                     >
                         Role Permissions
+                    </NavLink>
+
+                    {/* ✅ NEW: Capstone link */}
+                    <NavLink
+                        to="/admin/capstone"
+                        className={({ isActive }) =>
+                            "admin-nav-link" + (isActive ? " admin-nav-link-active" : "")
+                        }
+                    >
+                        Capstone
                     </NavLink>
                 </nav>
 

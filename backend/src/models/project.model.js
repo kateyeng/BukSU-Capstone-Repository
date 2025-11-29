@@ -35,7 +35,7 @@ const ProjectSchema = new mongoose.Schema(
     fileSize: { type: Number, default: null, min: 0 },
 
     // Cloudinary file info (preferred)
-    fileUrl: { type: String, default: null },            // secure_url
+    fileUrl: { type: String, default: null }, // secure_url
     cloudinaryPublicId: { type: String, default: null }, // public_id
 
     // Metrics
@@ -62,6 +62,17 @@ const ProjectSchema = new mongoose.Schema(
 
     // Visibility
     isPublished: { type: Boolean, default: true },
+
+    // 2PL edit lock (shared by student/teacher/admin)
+    editLock: {
+      lockedBy: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
+      lockedByRole: { type: String, trim: true },
+      lockedByName: { type: String, trim: true },
+      lockedByEmail: { type: String, trim: true },
+      lockedAt: { type: Date },
+      expiresAt: { type: Date },
+      releasedAt: { type: Date },
+    },
   },
   { timestamps: true }
 );

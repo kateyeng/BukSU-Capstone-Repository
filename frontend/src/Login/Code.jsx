@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "../api/axios.js";
+import toast from "react-hot-toast";
 
 export default function Code({ email: emailProp, onBack, onVerified }) {
   const navigate = useNavigate();
@@ -24,7 +25,7 @@ export default function Code({ email: emailProp, onBack, onVerified }) {
     e.preventDefault();
 
     if (code.trim().length < 6) {
-      alert("Please enter the 6-digit code.");
+      toast.error("Please enter the 6-digit code.");
       return;
     }
 
@@ -32,10 +33,22 @@ export default function Code({ email: emailProp, onBack, onVerified }) {
       setLoading(true);
       setMessage("");
 
-      const response = await axios.post("/api/auth/verifyCode", {
+      const verifyPromise = axios.post("/api/auth/verifyCode", {
         email,
         code,
       });
+
+      const response = await toast.promise(
+        verifyPromise,
+        {
+          loading: "Verifying code...",
+          success: (res) =>
+            res.data?.message || "Code verified successfully!",
+          error: (err) =>
+            err?.response?.data?.message || "Invalid or expired code.",
+        },
+        { duration: 3000 }
+      );
 
       setMessage(response.data?.message || "Code verified successfully!");
 
@@ -51,10 +64,17 @@ export default function Code({ email: emailProp, onBack, onVerified }) {
       }
     } catch (error) {
       console.error("❌ Code verification failed:", error);
-      setMessage(error?.response?.data?.message || "Invalid or expired code.");
+      setMessage(
+        error?.response?.data?.message || "Invalid or expired code."
+      );
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResend = () => {
+    // You can replace this with a real resend endpoint later
+    toast.success("If this were connected, the code would be resent.");
   };
 
   return (
@@ -112,7 +132,7 @@ export default function Code({ email: emailProp, onBack, onVerified }) {
             <button
               type="button"
               className="link"
-              onClick={() => alert("Resent!")}
+              onClick={handleResend}
             >
               Resend
             </button>

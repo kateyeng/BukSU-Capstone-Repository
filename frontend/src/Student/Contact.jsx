@@ -1,19 +1,14 @@
 import { useState } from "react";
 import "../index.css";
+import StudentNavbar from "./StudentNavbar.jsx";
 
-export default function TeacherContact({ onLogout, onNavigate }) {
+export default function StudentContact({ onLogout, onNavigate }) {
   const [form, setForm] = useState({
     name: "Juan Dela Cruz",
     email: "",
     subject: "How can we help you?",
     message: "",
   });
-
-  // helper for nav + logo
-  const go = (dest) => (e) => {
-    e.preventDefault();
-    onNavigate?.(dest);
-  };
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -27,45 +22,19 @@ export default function TeacherContact({ onLogout, onNavigate }) {
 
   return (
     <div className="dashboard">
-      {/* Navbar (teacher-scoped) */}
-      <header className="dashboard-header">
-        <div
-          className="logo-area"
-          onClick={go("dashboard")}
-          style={{ textDecoration: "none", cursor: "pointer" }}
-        >
-          <div className="logo-square" />
-          <div>
-            <div className="logo-title">BukSU CoT</div>
-            <div className="logo-subtitle">Capstone Repository</div>
-          </div>
-        </div>
-
-        <nav className="nav-links">
-          <a href="#" onClick={go("dashboard")}>Home</a>
-          <a href="#" onClick={go("browse")}>Browse</a>
-          <a href="#" onClick={go("upload")}>Upload</a>
-          <a href="#" onClick={go("about")}>About</a>
-          {/* Contact is active on this page */}
-          <a
-            href="#"
-            className="active"
-            onClick={(e) => e.preventDefault()}
-          >
-            Contact
-          </a>
-          <a href="#" onClick={go("profile")}>Profile</a>
-        </nav>
-
-        <button className="logout-btn" onClick={onLogout}>Logout</button>
-      </header>
+      <StudentNavbar
+        onLogout={onLogout}
+        onNavigate={onNavigate}
+        active="contact"
+      />
 
       {/* Page content */}
       <main className="contact container">
         <h1 className="contact__title">Get In Touch</h1>
         <p className="contact__lead">
           Have questions, suggestions, or need assistance? We're here to help.
-          Reach out to us using the contact information below or send us a message using the contact form.
+          Reach out to us using the contact information below or send us a
+          message using the contact form.
         </p>
 
         <section className="contact__grid">
@@ -82,9 +51,12 @@ export default function TeacherContact({ onLogout, onNavigate }) {
               }
               title="Address"
             >
-              Bukidnon State University<br />
-              College of Technology<br />
-              Malaybalay City, Bukidnon<br />
+              Bukidnon State University
+              <br />
+              College of Technology
+              <br />
+              Malaybalay City, Bukidnon
+              <br />
               Philippines 8700
             </InfoBlock>
 
@@ -99,7 +71,8 @@ export default function TeacherContact({ onLogout, onNavigate }) {
               }
               title="Email"
             >
-              cot@buksu.edu.ph<br />
+              cot@buksu.edu.ph
+              <br />
               thesis.realm@buksu.edu.ph
             </InfoBlock>
 
@@ -114,7 +87,8 @@ export default function TeacherContact({ onLogout, onNavigate }) {
               }
               title="Phone"
             >
-              (088) 813-5661<br />
+              (088) 813-5661
+              <br />
               Local 245
             </InfoBlock>
 
@@ -176,7 +150,12 @@ export default function TeacherContact({ onLogout, onNavigate }) {
             />
 
             <button type="submit" className="contact__send">
-              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
                 <path d="M4 12l16-8-4 16-4-6-8-2z" fill="currentColor" />
               </svg>
               <span>Send Message</span>

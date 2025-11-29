@@ -12,7 +12,7 @@ function uploadPdfBufferToCloudinary(file) {
         public_id: `${Date.now()}-${file.originalname}`,
         type: "upload",
         access_mode: "public",
-        access_control: [], // no “blocked for delivery” rules
+        access_control: [],
       },
       (err, result) => {
         if (err) return reject(err);
@@ -24,7 +24,7 @@ function uploadPdfBufferToCloudinary(file) {
   });
 }
 
-/* ---------- CREATE PROJECT (teacher/admin/student via protected routes) ---------- */
+/* ---------- CREATE PROJECT (student / teacher / admin via RBAC) ---------- */
 export const createProject = async (req, res) => {
   try {
     const {
@@ -54,7 +54,7 @@ export const createProject = async (req, res) => {
       return res.status(400).json({ message: "Only PDF files are allowed" });
     }
 
-    // Convert authors → array
+    // authors → array
     let authorsArr = [];
     if (Array.isArray(authors)) {
       authorsArr = authors;
@@ -65,7 +65,7 @@ export const createProject = async (req, res) => {
         .filter(Boolean);
     }
 
-    // Keywords → tags array
+    // keywords → tags array
     let tags = [];
     if (keywords) {
       tags = String(keywords)
@@ -74,11 +74,14 @@ export const createProject = async (req, res) => {
         .filter(Boolean);
     }
 
-    // Upload PDF buffer to Cloudinary
-    const uploadResult = await uploadPdfBufferToCloudinary(req.file);
+    // owner = logged-in user
+    const ownerId = req.user?._id;
+    if (!ownerId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
 
-    // Owner from session or body, if present
-    const ownerId = req.user?._id || req.body.owner || null;
+    // upload PDF to Cloudinary
+    const uploadResult = await uploadPdfBufferToCloudinary(req.file);
 
     const project = await Project.create({
       title,
@@ -88,17 +91,18 @@ export const createProject = async (req, res) => {
       authors: authorsArr,
       adviser: adviser || "",
       department: department || "",
+      submitterEmail: req.user?.email || undefined,
+      contactEmail: req.user?.email || undefined,
       tags,
       status,
       owner: ownerId,
 
-      // Cloudinary fields
+      // Cloudinary file info
       fileUrl: uploadResult.secure_url,
       cloudinaryPublicId: uploadResult.public_id,
 
-      // legacy local path (not used now)
+      // legacy local fields (kept for old records)
       filePath: null,
-
       mimeType: req.file.mimetype,
       fileSize: req.file.size,
     });
@@ -220,7 +224,7 @@ export const downloadProject = async (req, res) => {
       return res.redirect(project.fileUrl);
     }
 
-    // Fallback: old records using filePath
+    // Fallback: old records using local filePath
     if (project.filePath) {
       return res.redirect(project.filePath);
     }
@@ -232,5 +236,136 @@ export const downloadProject = async (req, res) => {
       message: "Download failed",
       error: err.message || "Unknown error",
     });
+  }
+};
+
+/* ---------- GET PROJECTS OF LOGGED-IN USER (for profile page) ---------- */
+// GET /api/student/projects/mine
+export const getMyProjects = async (req, res) => {
+  try {
+    const ownerId = req.user?._id;
+
+    if (!ownerId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    const projects = await Project.find({ owner: ownerId })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    console.log(
+      "[GET_MY_PROJECTS] user:",
+      String(ownerId),
+      "count:",
+      projects.length
+    );
+
+    return res.json({ projects });
+  } catch (err) {
+    console.error("Get my projects error:", err);
+    return res.status(500).json({
+      message: "Failed to load your projects",
+      error: err.message || "Unknown error",
+    });
+  }
+};
+
+/* ---------- 2PL LOCKING FOR STUDENT / OWNER ---------- */
+
+const LOCK_TTL_MINUTES = 10;
+
+function hasActiveLock(doc) {
+  const lock = doc.editLock;
+  if (!lock) return false;
+  if (lock.expiresAt && lock.expiresAt < new Date()) return false;
+  if (lock.releasedAt) return false;
+  return true;
+}
+
+// POST /api/student/projects/:id/lock
+export const lockMyProject = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const project = await Project.findById(id);
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    const isOwner =
+      project.owner && project.owner.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === "admin";
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ message: "Not allowed to edit this project" });
+    }
+
+    const existing = project.editLock;
+    if (
+      hasActiveLock(project) &&
+      existing?.lockedBy &&
+      existing.lockedBy.toString() !== req.user._id.toString()
+    ) {
+      return res
+        .status(423)
+        .json({ message: "This thesis is currently being edited by someone else." });
+    }
+
+    const now = new Date();
+    const expires = new Date(now.getTime() + LOCK_TTL_MINUTES * 60 * 1000);
+
+    project.editLock = {
+      lockedBy: req.user._id,
+      lockedByName: req.user.fullName || req.user.name || req.user.email,
+      lockedByEmail: req.user.email,
+      lockedByRole: req.user.role,
+      lockedAt: now,
+      expiresAt: expires,
+      releasedAt: null,
+    };
+
+    await project.save();
+    return res.json({ project });
+  } catch (err) {
+    console.error("[STUDENT][LOCK][ERROR]", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// POST /api/student/projects/:id/unlock
+export const unlockMyProject = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const project = await Project.findById(id);
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    const lock = project.editLock;
+    const userId = req.user._id.toString();
+    const isAdmin = req.user.role === "admin";
+    const isOwner =
+      project.owner && project.owner.toString() === userId;
+
+    // only lock owner / owner of thesis / admin can unlock an active lock
+    if (
+      hasActiveLock(project) &&
+      lock?.lockedBy &&
+      lock.lockedBy.toString() !== userId &&
+      !isOwner &&
+      !isAdmin
+    ) {
+      return res.status(403).json({ message: "You do not own this lock." });
+    }
+
+    // ✅ HARD CLEAR THE LOCK so teacher/admin sees it as free
+    project.editLock = undefined;
+
+    await project.save();
+    return res.json({ project });
+  } catch (err) {
+    console.error("[STUDENT][UNLOCK][ERROR]", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };

@@ -329,20 +329,44 @@ form button.link {
   font-weight: 600;
 }
 
+/* works for both <button class="logout-btn"> and <Link class="logout-btn"> */
+
 .logout-btn {
-  background: #f97316;
+  background: #ff7a1a;
   color: #fff;
+  font-weight: 600;
+  font-size: 0.95rem;
+
+  padding: 0.4rem 1.4rem;
+  border-radius: 999px;
+
   border: none;
-  padding: 8px 16px;
-  border-radius: 10px;
+  outline: none;
   cursor: pointer;
-  font-weight: 500;
-  transition: background 0.2s;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  /* keep consistent height even for <a> */
+  line-height: 1;
+}
+
+/* remove underline / default link styles on the public <Link> */
+.logout-btn:link,
+.logout-btn:visited {
+  color: #fff;
+  text-decoration: none;
 }
 
 .logout-btn:hover {
-  background: #ea580c;
+  filter: brightness(1.05);
 }
+
+.logout-btn:active {
+  transform: translateY(1px);
+}
+
 
 /* Hero */
 .hero {
@@ -1608,4 +1632,545 @@ form button.link {
   color: #111827;
   text-decoration: none;
   /* ensure hover also has no underline */
+}
+
+/* ===== Student Profile modern layout ===== */
+
+.profile-page {
+  padding: 32px 40px 48px;
+  background: radial-gradient(circle at top left, #f5f7ff, #ffffff 55%);
+}
+
+.profile-grid {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 24px;
+}
+
+.profile-card {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 24px 26px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.profile-card-main {
+  min-height: 240px;
+}
+
+.profile-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.profile-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #020617;
+}
+
+.profile-subtitle {
+  margin-top: 4px;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.profile-role-pill {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.profile-main-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 18px;
+}
+
+.profile-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 24px;
+  background: #e5e7eb;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  font-weight: 600;
+  color: #ffffff;
+  overflow: hidden;
+}
+
+.profile-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-avatar-initials {
+  display: inline-flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-name-block {
+  min-width: 0;
+}
+
+.profile-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: #0f172a;
+}
+
+.profile-email {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.profile-meta-row {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profile-meta-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.profile-stats-row {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.profile-stat {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f9fafb;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.profile-stat-label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+
+.profile-stat-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.profile-stat-text {
+  word-break: break-word;
+}
+
+/* Account card */
+
+.profile-section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: #020617;
+}
+
+.profile-section-subtitle {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin-bottom: 16px;
+}
+
+.profile-info-list {
+  border-radius: 12px;
+  border: 1px dashed rgba(148, 163, 184, 0.6);
+  padding: 10px 12px;
+  margin-bottom: 16px;
+}
+
+.profile-info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 0.9rem;
+}
+
+.profile-info-label {
+  color: #64748b;
+}
+
+.profile-info-value {
+  font-weight: 500;
+  color: #0f172a;
+}
+
+/* banners */
+
+.profile-banner {
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 0.87rem;
+  margin-bottom: 14px;
+}
+
+.profile-banner.success {
+  background: #ecfdf3;
+  border: 1px solid #4ade80;
+  color: #166534;
+}
+
+.profile-banner.neutral {
+  background: #eff6ff;
+  border: 1px solid #60a5fa;
+  color: #1d4ed8;
+}
+
+.profile-banner p {
+  margin-top: 4px;
+}
+
+/* Google button */
+
+.modern-google-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.1s ease,
+    background-color 0.15s ease;
+}
+
+.modern-google-btn span {
+  color: #111827;
+}
+
+.modern-google-btn:hover {
+  background: #f9fafb;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+  transform: translateY(-1px);
+}
+
+/* skeleton */
+
+.profile-skeleton {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.sk-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: linear-gradient(90deg,
+      #e5e7eb 0%,
+      #f3f4f6 50%,
+      #e5e7eb 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+}
+
+.sk-lines {
+  flex: 1;
+}
+
+.sk-line {
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg,
+      #e5e7eb 0%,
+      #f3f4f6 50%,
+      #e5e7eb 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+  margin-bottom: 6px;
+}
+
+.sk-line-short {
+  width: 60%;
+}
+
+.sk-line-shorter {
+  width: 40%;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* error text */
+
+.profile-error {
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+/* responsive layout */
+
+@media (max-width: 900px) {
+  .profile-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profile-page {
+    padding: 24px 20px 32px;
+  }
+}
+
+/* =========================
+   GLOBAL AUTH LAYOUT
+   (Login, Signup, Forgot, Code, Reset)
+   ========================= */
+
+.auth-page {
+  min-height: 100vh;
+  /* full screen height */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* center vertically */
+  align-items: center;
+  /* center horizontally */
+  background: #f5f5f7;
+  padding: 2rem 1rem;
+}
+
+/* Title / subtitle on top of the card */
+.auth-page .header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.auth-page .header h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.auth-page .header p {
+  font-size: 0.95rem;
+  color: #6b7280;
+}
+
+/* The white card that holds the form */
+.auth-page .container {
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 1.75rem 2rem 2rem;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+}
+
+/* Tabs bar (Login / Sign Up title strip) */
+.auth-page .tabs {
+  display: flex;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 1.25rem;
+}
+
+.auth-page .tab {
+  flex: 1;
+  text-align: center;
+  padding: 0.6rem 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+}
+
+.auth-page .tab.active {
+  border-bottom: 2px solid #111827;
+}
+
+/* Forms inside auth card */
+.auth-page .form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+/* “Back to Home” under the card */
+.back-home {
+  margin-top: 1.5rem;
+  background: none;
+  border: none;
+  color: #1e40af;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+/* Optional: make it look nice on very small screens */
+@media (max-width: 480px) {
+  .auth-page {
+    padding: 1.5rem 0.75rem;
+  }
+
+  .auth-page .container {
+    padding: 1.25rem 1.5rem 1.5rem;
+  }
+}
+
+/* ==== Account & Sign-in card ==== */
+
+.account-card {
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  padding: 20px 24px 24px;
+}
+
+/* title + subtitle */
+.account-card__title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  margin-bottom: 4px;
+  color: #111827;
+}
+
+.account-card__subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 16px;
+}
+
+/* dashed info box */
+.account-info-box {
+  border-radius: 16px;
+  border: 1px dashed #e5e7eb;
+  padding: 14px 16px 10px;
+  margin-bottom: 10px;
+}
+
+/* each row inside the dashed box */
+.account-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.account-row__label {
+  color: #6b7280;
+}
+
+.account-row__value {
+  font-weight: 600;
+  color: #111827;
+}
+
+/* ==== Change password link ==== */
+
+.account-change-password {
+  margin-top: 10px;
+  text-align: right;
+}
+
+.account-change-password button,
+.account-change-password a {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 13px;
+  color: #4f46e5;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.account-change-password button:hover,
+.account-change-password a:hover {
+  color: #4338ca;
+}
+
+/* ==== Linked to Google box (green) ==== */
+
+.account-linked-google {
+  border-radius: 16px;
+  border: 1px solid #bbf7d0;
+  background: #ecfdf3;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #166534;
+}
+
+.account-linked-google__title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+/* Inline text-style button for "Change password" */
+.change-password-link {
+  /* reset button look */
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+
+  /* link-style text */
+  font-size: 13px;
+  color: #4f46e5 !important;
+  /* indigo */
+  text-decoration: none !important;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.change-password-link:hover {
+  color: #4338ca !important;
+  /* darker indigo on hover */
+  text-decoration: underline !important;
+}
+
+.change-password-link:active {
+  color: #312e81 !important;
+}
+
+.change-password-link:focus-visible {
+  outline: 2px solid #c7d2fe;
+  outline-offset: 2px;
+  border-radius: 4px;
 }

@@ -5,11 +5,10 @@ import fs from "fs";
 import multer from "multer";
 import Project from "../models/project.model.js";
 import cloudinary from "../config/cloudinary.js";
-import { URL } from "url";
 
 const router = express.Router();
 
-/* ============== Multer setup ============== */
+/* ============== Multer setup (local temp storage) ============== */
 const uploadDir = path.join(process.cwd(), "uploads", "projects");
 fs.mkdirSync(uploadDir, { recursive: true });
 
@@ -23,14 +22,16 @@ const storage = multer.diskStorage({
     cb(null, `${ts}__${safe}`);
   },
 });
+
 const fileFilter = (_req, file, cb) =>
   file.mimetype === "application/pdf"
     ? cb(null, true)
     : cb(new Error("Only PDF files are allowed."));
+
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
 });
 
 /* ============== Helpers ============== */
@@ -47,7 +48,9 @@ function getOwnerIdFromDoc(doc) {
   return String(o);
 }
 
-/* ============== CREATE ============== */
+/* ============== CREATE (PUBLIC UPLOAD ENDPOINT) ============== */
+// NOTE: you are also creating projects via project.controller.js for
+// student/teacher upload; this route is kept for your older public upload flow.
 router.post("/", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
@@ -56,26 +59,28 @@ router.post("/", upload.single("file"), async (req, res) => {
 
     const { title, authors, adviser, department, year, abstract, keywords } =
       req.body;
+
     if (!title || !authors || !department || !year || !abstract) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // 1) Upload the file to Cloudinary
+    // 1) Upload the file to Cloudinary (raw PDF)
     const uploadResult = await cloudinary.uploader.upload(req.file.path, {
       folder: "buksu-thesis",
       resource_type: "raw",
     });
 
-    // optional: delete local temp file
+    // Delete local temp file
     fs.unlink(req.file.path, () => { });
 
     const ownerId = getRequesterId(req);
+
     const tags = String(keywords || "")
       .split(",")
-      .map((s) => s.trim())
+      .map((s) => s.trim().toLowerCase())
       .filter(Boolean);
 
-    // 2) Save Cloudinary URL to DB
+    // 2) Save document in DB
     const doc = await Project.create({
       title: String(title).trim(),
       category: String(department).trim(),
@@ -88,14 +93,16 @@ router.post("/", upload.single("file"), async (req, res) => {
       adviser: adviser ? String(adviser).trim() : undefined,
       ...(ownerId ? { owner: ownerId } : {}),
 
+      // file metadata
       filePath: undefined,
       mimeType: req.file.mimetype,
       fileSize: req.file.size,
-      tags,
-      status: "pending",
-
       fileUrl: uploadResult.secure_url,
       cloudinaryPublicId: uploadResult.public_id,
+
+      // tagging + status
+      tags,
+      status: "pending",
     });
 
     res.status(201).json({ project: doc.toPublic ? doc.toPublic() : doc });
@@ -106,10 +113,18 @@ router.post("/", upload.single("file"), async (req, res) => {
 });
 
 /* ============== LIST / SEARCH (approved by default) ============== */
+// Used by: GET /api/publicProjects
 router.get("/", async (req, res) => {
   try {
-    const { q = "", page = 1, limit = 12, category, year, status, mine } =
-      req.query;
+    const {
+      q = "",
+      page = 1,
+      limit = 12,
+      category,
+      year,
+      status,
+      mine,
+    } = req.query;
 
     // case-insensitive status, default = "approved"
     let statusFilter;
@@ -120,15 +135,27 @@ router.get("/", async (req, res) => {
     }
 
     const filter = {
-      ...(q ? { title: { $regex: q, $options: "i" } } : {}),
-      ...(category ? { category } : {}),
-      ...(year ? { year: Number(year) } : {}),
       status: statusFilter,
     };
 
+    if (category) filter.category = category;
+    if (year) filter.year = Number(year);
+
+    // If ?mine=1 and we know the owner, filter by owner
     const ownerId = getRequesterId(req);
     if (mine === "1" && ownerId) {
       filter.owner = ownerId;
+    }
+
+    // Optional backend search (title + abstract + authors + tags)
+    if (q && q.trim()) {
+      const regex = new RegExp(q.trim(), "i");
+      filter.$or = [
+        { title: regex },
+        { abstract: regex },
+        { authors: regex },
+        { tags: regex },
+      ];
     }
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -138,7 +165,10 @@ router.get("/", async (req, res) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit))
-        .select("title category year authors views status")
+        // IMPORTANT: include fields we search on in the frontend
+        .select(
+          "title category year authors abstract tags keywords views status fileUrl filePath"
+        )
         .lean(),
       Project.countDocuments(filter),
     ]);
@@ -189,7 +219,8 @@ router.get("/stats", async (req, res) => {
   }
 });
 
-/* ============== DETAILS (no status gate, just return the doc) ============== */
+/* ============== DETAILS ============== */
+// GET /api/publicProjects/:id
 router.get("/:id", async (req, res) => {
   try {
     const p = await Project.findById(req.params.id);
@@ -206,6 +237,7 @@ router.get("/:id", async (req, res) => {
 });
 
 /* ============== DOWNLOAD ============== */
+// GET /api/publicProjects/:id/download
 router.get("/:id/download", async (req, res) => {
   try {
     const p = await Project.findById(req.params.id);
@@ -213,14 +245,17 @@ router.get("/:id/download", async (req, res) => {
       return res.status(404).json({ message: "File not found" });
     }
 
+    // Prefer Cloudinary URL
     if (p.fileUrl) {
       return res.redirect(p.fileUrl);
     }
 
+    // Some legacy records might store a direct URL
     if (p.filePath && p.filePath.startsWith("http")) {
       return res.redirect(p.filePath);
     }
 
+    // Legacy local filePath
     if (p.filePath) {
       const abs = toAbsolute(p.filePath);
       return res.download(abs);

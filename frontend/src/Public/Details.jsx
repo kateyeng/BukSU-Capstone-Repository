@@ -1,7 +1,9 @@
 // frontend/src/Public/Details.jsx
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "../index.css";
 import api from "../api/axios.js";
+import PublicNavbar from "./PublicNavbar.jsx";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -9,9 +11,11 @@ export default function Details({ id, onNavigate }) {
   const [proj, setProj] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-  const [canDownload, setCanDownload] = useState(false); // 👈 RBAC flag
+  const [canDownload, setCanDownload] = useState(false);
 
-  // 1) Ask backend RBAC if GUEST can download projects
+  const navigate = useNavigate();
+
+  // RBAC: can guest download?
   useEffect(() => {
     let cancel = false;
 
@@ -32,7 +36,7 @@ export default function Details({ id, onNavigate }) {
     };
   }, []);
 
-  // 2) Load the public project details
+  // Load project
   useEffect(() => {
     let abort = false;
     const ac = new AbortController();
@@ -91,46 +95,16 @@ export default function Details({ id, onNavigate }) {
         : `${API}/${proj.filePath.replace(/^\/+/, "")}`
       : null);
 
-  const go = (dest) => (e) => {
+  const goBackBrowse = (e) => {
     e?.preventDefault();
-    onNavigate?.(dest);
+    onNavigate?.("browse");
+    navigate("/browse");
   };
 
   return (
     <div className="dashboard">
-      {/* Header */}
-      <header className="dashboard-header">
-        <div
-          className="logo-area"
-          onClick={go("dashboard")}
-          style={{ cursor: "pointer" }}
-        >
-          <div className="logo-square" />
-          <div>
-            <div className="logo-title">BukSU CoT</div>
-            <div className="logo-subtitle">Capstone Repository</div>
-          </div>
-        </div>
-
-        <nav className="nav-links">
-          <a href="#" onClick={go("dashboard")}>
-            Home
-          </a>
-          <a href="#" className="active" onClick={go("browse")}>
-            Browse
-          </a>
-          <a href="#" onClick={go("about")}>
-            About
-          </a>
-          <a href="#" onClick={go("contact")}>
-            Contact
-          </a>
-        </nav>
-
-        <button className="logout-btn" onClick={go("login")}>
-          Login
-        </button>
-      </header>
+      {/* Shared navbar (guest, Login link) */}
+      <PublicNavbar />
 
       {/* Content */}
       <div className="details-page">
@@ -209,7 +183,6 @@ export default function Details({ id, onNavigate }) {
               </p>
 
               <div className="details-actions details-actions-public">
-                {/* Download only if admin RBAC grants guest project:download */}
                 {canDownload && (
                   <a
                     className="btn-card btn-download"
@@ -222,7 +195,7 @@ export default function Details({ id, onNavigate }) {
                   </a>
                 )}
 
-                <button className="btn-back-link" onClick={go("browse")}>
+                <button className="btn-back-link" onClick={goBackBrowse}>
                   ← Back to Browse
                 </button>
               </div>

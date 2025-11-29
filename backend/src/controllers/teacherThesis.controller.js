@@ -1,4 +1,4 @@
-// controllers/teacherThesis.controller.js
+// backend/src/controllers/teacherThesis.controller.js
 import Thesis from "../models/project.model.js";
 import User from "../models/user.model.js";
 import {
@@ -17,7 +17,25 @@ async function getSubmitterEmail(thesis) {
   return thesis.contactEmail || null;
 }
 
-// PATCH /api/teacher/thesis/:id/status  (approve / reject / pending)
+/* ========= 2PL helpers ========= */
+
+const LOCK_TTL_MINUTES = 10; // how long a lock is valid
+
+function hasActiveLock(doc) {
+  const lock = doc.editLock;
+  if (!lock) return false;
+  if (lock.releasedAt) return false;
+
+  // ignore old “legacy” locks that have no expiresAt
+  if (!lock.expiresAt) return false;
+
+  if (lock.expiresAt && lock.expiresAt < new Date()) return false;
+  return true;
+}
+
+/* ========= STATUS (approve / reject / pending) ========= */
+
+// PATCH /api/teacher/thesis/:id/status
 export async function setThesisStatus(req, res) {
   try {
     const { id } = req.params;
@@ -91,6 +109,8 @@ export async function setThesisStatus(req, res) {
   }
 }
 
+/* ========= TEACHER EDIT ========= */
+
 // PATCH /api/teacher/thesis/:id  (teacher edit)
 export async function editThesis(req, res) {
   try {
@@ -128,7 +148,7 @@ export async function editThesis(req, res) {
           error: r.error || null,
         };
         console.log(
-          "[MAIL][EDIT] to=%s title=\"%s\" ->",
+          '[MAIL][EDIT] to=%s title="%s" ->',
           to,
           thesis.title,
           emailStatus
@@ -152,6 +172,93 @@ export async function editThesis(req, res) {
     return res.json({ ok: true, thesis, emailStatus, changes });
   } catch (e) {
     console.error("editThesis error:", e);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+/* ========= 2PL: LOCK / UNLOCK ========= */
+
+// POST /api/teacher/thesis/:id/lock
+export async function lockThesis(req, res) {
+  try {
+    const { id } = req.params;
+
+    const thesis = await Thesis.findById(id);
+    if (!thesis) {
+      return res.status(404).json({ message: "Thesis not found" });
+    }
+
+    const existing = thesis.editLock;
+    const userId = req.user._id.toString();
+
+    // someone else already holds an active lock
+    if (
+      hasActiveLock(thesis) &&
+      existing?.lockedBy &&
+      existing.lockedBy.toString() !== userId
+    ) {
+      return res.status(423).json({
+        message: "This thesis is currently being edited by someone else.",
+      });
+    }
+
+    const now = new Date();
+    const expires = new Date(now.getTime() + LOCK_TTL_MINUTES * 60 * 1000);
+
+    thesis.editLock = {
+      lockedBy: req.user._id,
+      lockedByName: req.user.name || req.user.fullName || req.user.email,
+      lockedByEmail: req.user.email,
+      lockedByRole: req.user.role,
+      lockedAt: now,
+      expiresAt: expires,
+      releasedAt: null,
+    };
+
+    await thesis.save();
+
+    return res.json({ thesis });
+  } catch (err) {
+    console.error("[TEACHER][LOCK][ERROR]", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+// POST /api/teacher/thesis/:id/unlock
+export async function unlockThesis(req, res) {
+  try {
+    const { id } = req.params;
+
+    const thesis = await Thesis.findById(id);
+    if (!thesis) {
+      return res.status(404).json({ message: "Thesis not found" });
+    }
+
+    const lock = thesis.editLock;
+    const userId = req.user._id.toString();
+    const isAdmin = req.user.role === "admin";
+
+    // only owner of the lock OR admin can unlock
+    if (
+      hasActiveLock(thesis) &&
+      lock?.lockedBy &&
+      lock.lockedBy.toString() !== userId &&
+      !isAdmin
+    ) {
+      return res.status(403).json({ message: "You do not own this lock." });
+    }
+
+    thesis.editLock = {
+      ...thesis.editLock,
+      releasedAt: new Date(),
+      expiresAt: new Date(),
+    };
+
+    await thesis.save();
+
+    return res.json({ thesis });
+  } catch (err) {
+    console.error("[TEACHER][UNLOCK][ERROR]", err);
     return res.status(500).json({ message: "Server error" });
   }
 }

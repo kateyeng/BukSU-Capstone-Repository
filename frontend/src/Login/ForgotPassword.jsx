@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "../api/axios.js"; // axios instance
+import toast from "react-hot-toast";
 
 export default function ForgotPassword({ onBack, onEmailSubmitted }) {
   const navigate = useNavigate();
@@ -21,7 +22,21 @@ export default function ForgotPassword({ onBack, onEmailSubmitted }) {
     setMessage("");
 
     try {
-      const response = await axios.post("/api/auth/forgotPassword", { email });
+      const forgotPromise = axios.post("/api/auth/forgotPassword", { email });
+
+      const response = await toast.promise(
+        forgotPromise,
+        {
+          loading: "Sending reset code...",
+          success: (res) =>
+            res.data?.message || "Check your email for the reset code.",
+          error: (err) =>
+            err?.response?.data?.message ||
+            "Something went wrong. Please try again.",
+        },
+        { duration: 3000 }
+      );
+
       const { message, resetToken } = response.data || {};
 
       // store for later steps

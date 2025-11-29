@@ -1,8 +1,9 @@
 // src/Teacher/Thesis.jsx
 import { useEffect, useMemo, useState } from "react";
 import EditThesisModal from "./EditThesisModal.jsx";
-import Sidebar from "./Sidebar.jsx";          // 👈 use shared sidebar
+import Sidebar from "./Sidebar.jsx";
 import "./teacher.css";
+import toast from "react-hot-toast";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -15,7 +16,15 @@ export default function TeacherThesisPage() {
   const [busyId, setBusyId] = useState("");
   const [previewItem, setPreviewItem] = useState(null);
 
-  // ================= LOAD LIST =================
+  // approve / reject confirmation modal
+  const [confirmData, setConfirmData] = useState(null);
+
+  function buildDownloadUrl(thesis) {
+    if (!thesis?._id) return null;
+    return `${API}/api/publicProjects/${thesis._id}/download`;
+  }
+
+  /* ========== LOAD LIST ========== */
   async function load() {
     setLoading(true);
     try {
@@ -31,7 +40,7 @@ export default function TeacherThesisPage() {
       );
     } catch (e) {
       console.error("[TEACHER][LOAD][ERROR]", e);
-      alert("Failed to load thesis list.");
+      toast.error("Failed to load thesis list.");
     } finally {
       setLoading(false);
     }
@@ -41,12 +50,13 @@ export default function TeacherThesisPage() {
     load();
   }, []);
 
-  function buildDownloadUrl(thesis) {
-    if (!thesis?._id) return null;
-    return `${API}/api/publicProjects/${thesis._id}/download`;
-  }
+  // polling so locks appear/disappear for others
+  useEffect(() => {
+    const id = setInterval(load, 5000);
+    return () => clearInterval(id);
+  }, []);
 
-  // ================= STATUS UPDATE =================
+  /* ========== STATUS UPDATE ========== */
   async function updateStatus(id, next, extra = {}) {
     const prev = items.find((i) => i._id === id);
     console.log(
@@ -84,33 +94,157 @@ export default function TeacherThesisPage() {
         emailStatus: data?.emailStatus,
       });
 
-      toast(
+      toast.success(
         `${next === "approved" ? "Approved" : "Rejected"
         } — email notification queued.`
       );
     } catch (e) {
       console.error("[TEACHER][STATUS][ERROR]", e);
-      alert(`Failed to set status to "${next}". Reverting.`);
+      toast.error(`Failed to set status to "${next}". Reverting.`);
       setItems((list) => list.map((i) => (i._id === id ? prev : i)));
     } finally {
       setBusyId("");
     }
   }
 
-  function onApprove(t) {
-    if (!confirm(`Approve "${t.title}"?`)) return;
-    updateStatus(t._id, "approved");
+  /* ========== LOCK HELPERS (client-side) ========== */
+
+  // replicate the server's hasActiveLock logic
+  function hasActiveLock(thesis) {
+    const lock = thesis?.editLock;
+    if (!lock) return false;
+    if (lock.releasedAt) return false;
+    if (lock.expiresAt && new Date(lock.expiresAt) < new Date()) return false;
+    return true;
   }
 
-  function onReject(t) {
-    if (!confirm(`Reject "${t.title}"?`)) return;
-    const reason =
-      prompt("Optional: add a rejection reason (shown in the email):") ||
-      undefined;
-    updateStatus(t._id, "rejected", reason ? { reason } : {});
+  /* ========== LOCK / UNLOCK FOR EDITING (2PL) ========== */
+
+  async function lockThesisForEdit(thesis) {
+    try {
+      setBusyId(thesis._id);
+
+      const res = await fetch(
+        `${API}/api/teacher/thesis/${thesis._id}/lock`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+
+      if (res.status === 423) {
+        toast.error("This thesis is currently being edited by someone else.");
+        await load(); // refresh lock state
+        return false;
+      }
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const json = await res.json();
+
+      // Update local list with new lock info
+      if (json?.thesis?._id) {
+        setItems((list) =>
+          list.map((i) => (i._id === json.thesis._id ? json.thesis : i))
+        );
+      }
+
+      return true;
+    } catch (e) {
+      console.error("[TEACHER][LOCK][ERROR]", e);
+      toast.error("Failed to acquire edit lock.");
+      return false;
+    } finally {
+      setBusyId("");
+    }
   }
 
-  // ================= FILTERING =================
+  async function unlockThesisForEdit(thesisId) {
+    try {
+      const res = await fetch(
+        `${API}/api/teacher/thesis/${thesisId}/unlock`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (json?.thesis?._id) {
+        setItems((list) =>
+          list.map((i) => (i._id === json.thesis._id ? json.thesis : i))
+        );
+      } else {
+        // fallback: clear lock locally
+        setItems((list) =>
+          list.map((i) =>
+            i._id === thesisId ? { ...i, editLock: undefined } : i
+          )
+        );
+      }
+    } catch (e) {
+      console.error("[TEACHER][UNLOCK][ERROR]", e);
+      // no toast here to avoid noise
+    }
+  }
+
+  async function handleOpenEdit(thesis) {
+    // if UI already sees an active lock, block right away
+    if (hasActiveLock(thesis)) {
+      toast.error("This thesis is currently being edited by someone else.");
+      return;
+    }
+
+    const ok = await lockThesisForEdit(thesis);
+    if (ok) {
+      // use the latest version from state (with editLock) if available
+      setEditItem((prev) => {
+        const latest = items.find((i) => i._id === thesis._id);
+        return latest || thesis;
+      });
+    }
+  }
+
+  async function handleCloseEdit() {
+    if (editItem) {
+      await unlockThesisForEdit(editItem._id);
+    }
+    setEditItem(null);
+  }
+
+  /* ========== APPROVE / REJECT CONFIRMS ========== */
+  function onApprove(thesis) {
+    setConfirmData({ mode: "approve", thesis, reason: "" });
+  }
+
+  function onReject(thesis) {
+    setConfirmData({ mode: "reject", thesis, reason: "" });
+  }
+
+  async function handleConfirm() {
+    if (!confirmData) return;
+    const { mode, thesis, reason } = confirmData;
+
+    if (mode === "approve") {
+      await updateStatus(thesis._id, "approved");
+    } else {
+      await updateStatus(
+        thesis._id,
+        "rejected",
+        reason ? { reason } : {}
+      );
+    }
+
+    setConfirmData(null);
+  }
+
+  function handleCancelConfirm() {
+    setConfirmData(null);
+  }
+
+  /* ========== FILTERING ========== */
   const filtered = useMemo(
     () =>
       items.filter((i) => {
@@ -126,15 +260,17 @@ export default function TeacherThesisPage() {
 
   const previewUrl = previewItem ? buildDownloadUrl(previewItem) : null;
 
-  // ================= RENDER =================
+  /* ========== RENDER ========== */
   return (
     <div className="admin-shell">
-      <Sidebar /> {/* 👈 shared sidebar with Dashboard / Activity */}
+      <Sidebar />
       <main className="admin-main">
         <div className="page-head">
           <div>
             <h1>Thesis</h1>
-            <div className="sub">Approve, reject, edit, or view submissions</div>
+            <div className="sub">
+              Approve, reject, edit, or view submissions
+            </div>
           </div>
         </div>
 
@@ -172,77 +308,97 @@ export default function TeacherThesisPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((t) => (
-              <tr
-                key={t._id}
-                className={busyId === t._id ? "row-busy" : ""}
-              >
-                <td>{t.title}</td>
-                <td>{t.year || "—"}</td>
-                <td>{t.category || "—"}</td>
-                <td>{(t.authors || []).join(", ") || "—"}</td>
-                <td>
-                  <span className={`badge ${t.status || "pending"}`}>
-                    {t.status || "pending"}
-                  </span>
-                </td>
+            {filtered.map((t) => {
+              const locked = hasActiveLock(t);
 
-                {/* ===== ACTION ICON BOXES (same dark style) ===== */}
-                <td className="actions">
-                  {/* Approve ✔ */}
-                  <button
-                    className="btn icon-box"
-                    style={{ background: "#111827", color: "#fff" }}
-                    onClick={() => onApprove(t)}
-                    disabled={busyId === t._id}
-                    title="Approve and notify"
-                  >
-                    ✔
-                  </button>
+              return (
+                <tr
+                  key={t._id}
+                  className={busyId === t._id ? "row-busy" : ""}
+                >
+                  <td>{t.title}</td>
+                  <td>{t.year || "—"}</td>
+                  <td>{t.category || "—"}</td>
+                  <td>{(t.authors || []).join(", ") || "—"}</td>
+                  <td>
+                    <span className={`badge ${t.status || "pending"}`}>
+                      {t.status || "pending"}
+                    </span>
+                    {locked && (
+                      <span className="badge locked">Editing…</span>
+                    )}
+                  </td>
 
-                  {/* Reject ✖ */}
-                  <button
-                    className="btn icon-box"
-                    style={{ background: "#111827", color: "#fff" }}
-                    onClick={() => onReject(t)}
-                    disabled={busyId === t._id}
-                    title="Reject and notify"
-                  >
-                    ✖
-                  </button>
+                  <td className="actions">
+                    {locked ? (
+                      <span style={{ fontSize: 12, color: "#9ca3af" }}>
+                        Actions disabled – currently being edited
+                      </span>
+                    ) : (
+                      <>
+                        {/* Approve ✔ */}
+                        <button
+                          className="btn icon-box"
+                          style={{ background: "#111827", color: "#fff" }}
+                          onClick={() => onApprove(t)}
+                          disabled={busyId === t._id}
+                          title="Approve and notify"
+                        >
+                          ✔
+                        </button>
 
-                  {/* Edit ✎ */}
-                  <button
-                    className="btn icon-box"
-                    style={{ background: "#111827", color: "#fff" }}
-                    onClick={() => setEditItem(t)}
-                    disabled={busyId === t._id}
-                    title="Edit thesis"
-                  >
-                    ✎
-                  </button>
+                        {/* Reject ✖ */}
+                        <button
+                          className="btn icon-box"
+                          style={{ background: "#111827", color: "#fff" }}
+                          onClick={() => onReject(t)}
+                          disabled={busyId === t._id}
+                          title="Reject and notify"
+                        >
+                          ✖
+                        </button>
 
-                  {/* View PDF 📄 */}
-                  <button
-                    className="btn icon-box"
-                    style={{ background: "#111827", color: "#fff" }}
-                    onClick={() => {
-                      const url = buildDownloadUrl(t);
-                      if (!url) {
-                        alert("No PDF available for this thesis.");
-                        return;
-                      }
-                      window.open(url, "_blank", "noopener,noreferrer");
-                      setPreviewItem(t);
-                    }}
-                    disabled={busyId === t._id}
-                    title="View thesis PDF"
-                  >
-                    📄
-                  </button>
-                </td>
-              </tr>
-            ))}
+                        {/* Edit ✎ */}
+                        <button
+                          className="btn icon-box"
+                          style={{ background: "#111827", color: "#fff" }}
+                          onClick={() => handleOpenEdit(t)}
+                          disabled={busyId === t._id}
+                          title="Edit thesis"
+                        >
+                          ✎
+                        </button>
+
+                        {/* View PDF 📄 */}
+                        <button
+                          className="btn icon-box"
+                          style={{ background: "#111827", color: "#fff" }}
+                          onClick={() => {
+                            const url = buildDownloadUrl(t);
+                            if (!url) {
+                              toast.error(
+                                "No PDF available for this thesis."
+                              );
+                              return;
+                            }
+                            window.open(
+                              url,
+                              "_blank",
+                              "noopener,noreferrer"
+                            );
+                            setPreviewItem(t);
+                          }}
+                          disabled={busyId === t._id}
+                          title="View thesis PDF"
+                        >
+                          📄
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
             {!filtered.length && (
               <tr>
                 <td colSpan="6">No results.</td>
@@ -255,13 +411,14 @@ export default function TeacherThesisPage() {
         {editItem && (
           <EditThesisModal
             item={editItem}
-            onClose={() => setEditItem(null)}
-            onSaved={(updated) => {
+            onClose={handleCloseEdit}
+            onSaved={async (updated) => {
               setItems((prev) =>
                 prev.map((p) => (p._id === updated._id ? updated : p))
               );
+              toast.success("Changes saved — email notification queued.");
+              await unlockThesisForEdit(updated._id);
               setEditItem(null);
-              toast("Changes saved — email notification queued.");
             }}
           />
         )}
@@ -323,24 +480,72 @@ export default function TeacherThesisPage() {
             </div>
           </div>
         )}
+
+        {/* Confirm approve / reject modal */}
+        {confirmData && (
+          <div
+            className="modal-backdrop"
+            onClick={handleCancelConfirm}
+          >
+            <div
+              className="modal"
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxWidth: 420 }}
+            >
+              <header>
+                <strong>
+                  {confirmData.mode === "approve"
+                    ? "Approve Thesis"
+                    : "Reject Thesis"}
+                </strong>
+                <button className="btn" onClick={handleCancelConfirm}>
+                  Close
+                </button>
+              </header>
+
+              <div className="content">
+                <p style={{ marginBottom: 12, fontSize: 14 }}>
+                  {confirmData.mode === "approve"
+                    ? `Are you sure you want to approve `
+                    : `Are you sure you want to reject `}
+                  <strong>"{confirmData.thesis.title}"</strong>?
+                </p>
+
+                {confirmData.mode === "reject" && (
+                  <div className="row">
+                    <label className="label-sm">
+                      Rejection reason (optional, shown in email)
+                    </label>
+                    <textarea
+                      className="field"
+                      rows={4}
+                      value={confirmData.reason}
+                      onChange={(e) =>
+                        setConfirmData((prev) => ({
+                          ...prev,
+                          reason: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+
+              <footer>
+                <button className="btn" onClick={handleCancelConfirm}>
+                  Cancel
+                </button>
+                <button
+                  className="btn primary"
+                  onClick={handleConfirm}
+                >
+                  {confirmData.mode === "approve" ? "Approve" : "Reject"}
+                </button>
+              </footer>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
-}
-
-// tiny toast
-function toast(msg) {
-  const el = document.createElement("div");
-  el.textContent = msg;
-  el.style.cssText = `
-    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    background: #111; color: #fff; padding: 10px 14px; border-radius: 8px;
-    font-size: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.2); z-index: 9999;
-  `;
-  document.body.appendChild(el);
-  setTimeout(() => {
-    el.style.opacity = "0";
-    el.style.transition = "opacity .3s";
-  }, 1800);
-  setTimeout(() => el.remove(), 2200);
 }

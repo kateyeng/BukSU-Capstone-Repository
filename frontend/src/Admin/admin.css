@@ -528,3 +528,348 @@
     font-size: 12px;
     color: #9ca3af;
 }
+
+/* ================= CAPSTONE / THESIS PAGE ================= */
+
+.capstone-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+/* --- Header --- */
+
+.capstone-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1rem;
+    margin-bottom: 0.25rem;
+}
+
+.capstone-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.capstone-subtitle {
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+/* Search + filter */
+
+.capstone-header-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.capstone-search,
+.capstone-filter {
+    border-radius: 999px;
+    border: 1px solid #e5e7eb;
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    outline: none;
+    background: #ffffff;
+}
+
+.capstone-search {
+    min-width: 230px;
+}
+
+.capstone-filter {
+    min-width: 130px;
+}
+
+.capstone-search::placeholder {
+    color: #9ca3af;
+}
+
+.capstone-search:focus,
+.capstone-filter:focus {
+    border-color: #111827;
+    box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.08);
+}
+
+/* --- Alerts / states --- */
+
+.capstone-alert {
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+}
+
+.capstone-alert-error {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
+.capstone-loading,
+.capstone-empty {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 40px 24px;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #6b7280;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+}
+
+/* --- Table --- */
+
+.capstone-table-wrapper {
+    background: transparent;
+}
+
+.capstone-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    background: #ffffff;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+}
+
+.capstone-table thead {
+    background: #f9fafb;
+}
+
+.capstone-table th,
+.capstone-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.capstone-table th {
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6b7280;
+}
+
+.capstone-table td {
+    font-weight: 400;
+    color: #111827;
+}
+
+.capstone-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+/* center numeric / status / actions columns
+   (6 = STATUS, 7 = UPLOADED, 8 = ACTIONS) */
+.capstone-table th:nth-child(6),
+.capstone-table td:nth-child(6),
+.capstone-table th:nth-child(7),
+.capstone-table td:nth-child(7),
+.capstone-table th:nth-child(8),
+.capstone-table td:nth-child(8) {
+    text-align: center;
+}
+
+/* title + category stacked */
+
+.capstone-title-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.capstone-project-title {
+    font-weight: 600;
+}
+
+.capstone-project-category {
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+/* authors as small pills */
+
+.capstone-authors {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.capstone-author-pill {
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 0.75rem;
+}
+
+/* status pills */
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.status-pill-pending {
+    background: #fff7ed;
+    color: #c05621;
+}
+
+.status-pill-approved {
+    background: #ecfdf3;
+    color: #166534;
+}
+
+.status-pill-rejected {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+/* --- Actions (dark rounded buttons) --- */
+
+.capstone-actions {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+}
+
+.capstone-action-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 12px;
+    border: none;
+    outline: none;
+    background: #020617;
+    color: #f9fafb;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.capstone-action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.45);
+}
+
+.capstone-action-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.capstone-action-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+    box-shadow: none;
+}
+
+/* --- Pagination bar --- */
+
+.capstone-pagination {
+    margin-top: 12px;
+    padding: 10px 18px;
+    border-radius: 16px;
+    background: #ffffff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+}
+
+.capstone-pagination-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: #4b5563;
+}
+
+.capstone-pagination-left select {
+    margin-left: 6px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    font-size: 0.8rem;
+}
+
+.capstone-pagination-count {
+    font-weight: 500;
+}
+
+.capstone-pagination-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.capstone-page-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.capstone-page-btn:hover:not(:disabled) {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.capstone-page-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.capstone-page-indicator {
+    color: #4b5563;
+}
+
+/* --- Responsive --- */
+
+@media (max-width: 900px) {
+    .capstone-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .capstone-header-actions {
+        width: 100%;
+    }
+
+    .capstone-search {
+        flex: 1;
+    }
+
+    .capstone-table {
+        font-size: 0.8rem;
+    }
+
+    .capstone-table th,
+    .capstone-table td {
+        padding: 8px 10px;
+    }
+
+    .capstone-pagination {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+}

@@ -1,7 +1,7 @@
-// src/pages/SignUpPage.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "../api/axios.js";
+import toast from "react-hot-toast";
 
 export default function SignUpPage() {
   const navigate = useNavigate();
@@ -62,32 +62,34 @@ function SignUpForm({ onSwitch }) {
     e.preventDefault();
 
     if (form.password !== form.confirm) {
-      alert("Passwords do not match");
+      toast.error("Passwords do not match");
       return;
     }
 
     try {
-      // ✅ Send what backend expects
-      const response = await axios.post("/api/auth/register", {
+      const registerPromise = axios.post("/api/auth/register", {
         fullName: form.name, // backend expects fullName
         email: form.email,
         password: form.password,
       });
 
-      alert(response.data.message || "Registered successfully");
-      console.log("✅ Success:", response.data);
+      await toast.promise(
+        registerPromise,
+        {
+          loading: "Creating your account...",
+          success: (res) =>
+            res.data?.message || "Registered successfully. Redirecting...",
+          error: (err) =>
+            err?.response?.data?.message ||
+            "Failed to register. Try again later.",
+        },
+        { duration: 3000 }
+      );
 
       // after sign up, go to login page
       onSwitch?.();
     } catch (error) {
-      console.error(
-        "❌ Registration failed:",
-        error.response?.data || error.message
-      );
-      alert(
-        error.response?.data?.message ||
-        "Failed to register. Try again later."
-      );
+      console.error("❌ Registration failed:", error?.response?.data || error);
     }
   };
 

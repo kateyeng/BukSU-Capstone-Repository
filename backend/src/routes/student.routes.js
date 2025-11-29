@@ -1,4 +1,3 @@
-// backend/src/routes/student.routes.js
 import express from "express";
 import { protect, ownerOrAdmin } from "../middleware/auth.js";
 import { requirePermission } from "../middleware/acl.js";
@@ -8,6 +7,9 @@ import {
   updateProject,
   deleteProject,
   downloadProject,
+  getMyProjects,
+  lockMyProject,
+  unlockMyProject,
 } from "../controllers/project.controller.js";
 
 const router = express.Router();
@@ -17,7 +19,15 @@ router.get("/projects/debug", (req, res) => {
   res.json({ ok: true, msg: "Student projects route is working" });
 });
 
-// CREATE / upload project  (student + admin via RBAC)
+// Only the logged-in student's projects (used in Profile page)
+router.get(
+  "/projects/mine",
+  protect,
+  requirePermission("project", "read"),
+  getMyProjects
+);
+
+// CREATE / upload project
 router.post(
   "/projects",
   protect,
@@ -34,6 +44,24 @@ router.patch(
   ownerOrAdmin("id"),
   uploadProjectFile.single("file"),
   updateProject
+);
+
+// 2PL LOCK for editing (student / owner / admin)
+router.post(
+  "/projects/:id/lock",
+  protect,
+  requirePermission("project", "update"),
+  ownerOrAdmin("id"),
+  lockMyProject
+);
+
+// 2PL UNLOCK
+router.post(
+  "/projects/:id/unlock",
+  protect,
+  requirePermission("project", "update"),
+  ownerOrAdmin("id"),
+  unlockMyProject
 );
 
 // DELETE

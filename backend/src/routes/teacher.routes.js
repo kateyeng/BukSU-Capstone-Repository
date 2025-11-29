@@ -1,4 +1,3 @@
-// routes/teacher.routes.js
 import express from "express";
 import { protect, requireRole } from "../middleware/auth.js";
 import { requirePermission } from "../middleware/acl.js";
@@ -6,6 +5,8 @@ import Project from "../models/project.model.js";
 import {
   setThesisStatus,
   editThesis,
+  lockThesis,
+  unlockThesis,
 } from "../controllers/teacherThesis.controller.js";
 
 const router = express.Router();
@@ -13,22 +14,24 @@ const router = express.Router();
 // All teacher routes require login with role "teacher" OR "admin"
 router.use(protect, requireRole("teacher", "admin"));
 
-/* ========== THESIS LIST (VIEW) ========== */
-// GET /api/teacher/thesis?status=pending
+/* THESIS LIST (VIEW) */
 router.get(
   "/thesis",
-  requirePermission("thesis", "view"),   // 👈 was project:read
+  requirePermission("thesis", "view"),
   async (req, res, next) => {
     try {
       const limit = Math.min(Number(req.query.limit) || 500, 1000);
-      const status = req.query.status; // optional ?status=pending
+      const status = req.query.status;
 
       const filter = {};
-      if (status) filter.status = status;
+      if (status && status !== "all") filter.status = status;
+      if (req.user?.role === "teacher") {
+        filter.adviser = req.user._id;
+      }
 
       const thesis = await Project.find(
         filter,
-        "title category year authors status createdAt submitterEmail owner"
+        "title category year authors status createdAt submitterEmail owner adviser editLock"
       )
         .sort({ createdAt: -1 })
         .limit(limit);
@@ -40,27 +43,37 @@ router.get(
   }
 );
 
-/* ========== STATUS UPDATE (APPROVE / REJECT) ========== */
-// PATCH /api/teacher/thesis/:id/status
-// For now we treat both approve/reject as needing "thesis:approve".
+/* STATUS UPDATE */
 router.patch(
   "/thesis/:id/status",
-  requirePermission("thesis", "approve"),  // 👈 instead of project:update
+  requirePermission("thesis", "approve"),
   setThesisStatus
 );
 
-/* ========== EDIT THESIS CONTENT ========== */
-// PATCH /api/teacher/thesis/:id
+/* EDIT CONTENT */
 router.patch(
   "/thesis/:id",
-  requirePermission("thesis", "edit"),     // 👈 instead of project:update
+  requirePermission("thesis", "edit"),
   editThesis
 );
 
-/* ========== DELETE THESIS (optional, mostly for admin) ========== */
+/* 2PL LOCK / UNLOCK */
+router.post(
+  "/thesis/:id/lock",
+  requirePermission("thesis", "edit"),
+  lockThesis
+);
+
+router.post(
+  "/thesis/:id/unlock",
+  requirePermission("thesis", "edit"),
+  unlockThesis
+);
+
+/* DELETE (optional, mostly admin) */
 router.delete(
   "/thesis/:id",
-  requirePermission("project", "delete"),  // keep delete tied to project:delete (usually admin-only)
+  requirePermission("project", "delete"),
   async (req, res, next) => {
     try {
       const doc = await Project.findByIdAndDelete(req.params.id);
@@ -72,7 +85,6 @@ router.delete(
   }
 );
 
-// TEMP: quick check router is mounted
 router.get("/ping", (req, res) => {
   res.json({ ok: true, message: "teacher router is mounted" });
 });

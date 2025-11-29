@@ -1,7 +1,10 @@
-// frontend/src/teacher/Uploads.jsx
-import { useMemo, useRef, useState } from "react";
+// src/Student/Uploads.jsx
+import { useEffect, useMemo, useRef, useState } from "react";
 import "../index.css";
-import { uploadProject } from "../api/student/projects"; // ✅ use your API helper
+import { uploadProject } from "../api/student/projects";
+import StudentNavbar from "./StudentNavbar.jsx";
+import toast from "react-hot-toast";
+import api from "../api/axios.js"; // ✅ NEW: axios instance
 
 function getAuth() {
   try {
@@ -12,16 +15,22 @@ function getAuth() {
       const obj = JSON.parse(raw);
       if (obj) return { id: obj._id || obj.id || null, role: obj.role || null };
     }
-  } catch {}
+  } catch { }
   return { id: null, role: null };
 }
 
-export default function Upload({ onLogout = () => {}, onNavigate = () => {} }) {
+export default function Upload({
+  onLogout = () => { },
+  onNavigate = () => { },
+}) {
   const [step, setStep] = useState(1);
 
   const [title, setTitle] = useState("");
   const [authors, setAuthors] = useState("");
+
+  // adviser will store the selected TEACHER ID
   const [adviser, setAdviser] = useState("");
+
   const [department, setDepartment] = useState("");
   const [year, setYear] = useState("");
   const [abstract, setAbstract] = useState("");
@@ -29,7 +38,15 @@ export default function Upload({ onLogout = () => {}, onNavigate = () => {} }) {
   const [file, setFile] = useState(null);
   const fileInput = useRef(null);
 
-  const pct = useMemo(() => (step === 1 ? 33 : step === 2 ? 67 : 100), [step]);
+  // ===== TEACHERS STATE =====
+  const [teachers, setTeachers] = useState([]);
+  const [teachersLoading, setTeachersLoading] = useState(true);
+  const [teachersError, setTeachersError] = useState("");
+
+  const pct = useMemo(
+    () => (step === 1 ? 33 : step === 2 ? 67 : 100),
+    [step]
+  );
 
   const depts = [
     "Information Technology",
@@ -46,12 +63,59 @@ export default function Upload({ onLogout = () => {}, onNavigate = () => {} }) {
   const next = () => setStep((s) => Math.min(3, s + 1));
   const prev = () => setStep((s) => Math.max(1, s - 1));
 
+  // ===== FETCH TEACHERS ON LOAD =====
+  useEffect(() => {
+    let abort = false;
+
+    async function fetchTeachers() {
+      try {
+        setTeachersLoading(true);
+        setTeachersError("");
+
+        // 👇 change this path if your route is different
+        const res = await api.get("/api/users/teachers", {
+          withCredentials: true,
+        });
+
+        const list = res.data?.teachers || res.data || [];
+        if (!abort) setTeachers(list);
+      } catch (err) {
+        console.error("Failed to load teachers:", err?.response?.data || err);
+        if (!abort) {
+          setTeachersError(
+            err?.response?.data?.message ||
+            err?.message ||
+            "Failed to load advisers"
+          );
+        }
+      } finally {
+        if (!abort) setTeachersLoading(false);
+      }
+    }
+
+    fetchTeachers();
+    return () => {
+      abort = true;
+    };
+  }, []);
+
+  const validateFile = (f) => {
+    if (f.type !== "application/pdf") {
+      toast.error("Please upload a PDF file.");
+      return false;
+    }
+    if (f.size > 50 * 1024 * 1024) {
+      toast.error("Max size is 50MB.");
+      return false;
+    }
+    return true;
+  };
+
   const handleDrop = (e) => {
     e.preventDefault();
     if (e.dataTransfer?.files?.[0]) {
       const f = e.dataTransfer.files[0];
-      if (f.type !== "application/pdf") return alert("Please upload a PDF file.");
-      if (f.size > 50 * 1024 * 1024) return alert("Max size is 50MB.");
+      if (!validateFile(f)) return;
       setFile(f);
     }
   };
@@ -59,8 +123,7 @@ export default function Upload({ onLogout = () => {}, onNavigate = () => {} }) {
   const handleFile = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (f.type !== "application/pdf") return alert("Please upload a PDF file.");
-    if (f.size > 50 * 1024 * 1024) return alert("Max size is 50MB.");
+    if (!validateFile(f)) return;
     setFile(f);
   };
 
@@ -69,38 +132,52 @@ export default function Upload({ onLogout = () => {}, onNavigate = () => {} }) {
     if (
       !title ||
       !authors ||
-      !adviser ||
+      !adviser || // must pick a teacher
       !department ||
       !year ||
       !abstract ||
       !keywords ||
       !file
     ) {
-      alert("Please complete all required fields.");
+      toast.error("Please complete all required fields.");
       return;
     }
 
     try {
-      const { id: userId } = getAuth(); // optional, backend mainly uses session
+      const { id: userId } = getAuth();
 
-      // ✅ use axios helper → POST /api/student/projects (multipart/form-data)
-      const res = await uploadProject({
+      const uploadPromise = uploadProject({
         title,
-        category: department,  // department used as category
+        category: department,
         year,
         abstract,
         authors,
-        adviser,
+        adviser, // 👈 this is the TEACHER ID
         department,
         keywords,
         file,
         status: "pending",
-        owner: userId,         // backend can ignore if not needed
+        owner: userId,
       });
 
-      const data = res?.data || {};
+      const res = await toast.promise(
+        uploadPromise,
+        {
+          loading: "Uploading thesis...",
+          success: "Thesis submitted for approval.",
+          error: (err) => {
+            const msg =
+              err?.response?.data?.error ||
+              err?.response?.data?.message ||
+              err?.message ||
+              "Upload failed";
+            return msg;
+          },
+        },
+        { duration: 4000 }
+      );
 
-      // Cloudinary/DB response – project doc with filePath
+      const data = res?.data || {};
       const fileUrl =
         data?.filePath ||
         data?.file?.secure_url ||
@@ -108,58 +185,22 @@ export default function Upload({ onLogout = () => {}, onNavigate = () => {} }) {
         null;
 
       if (fileUrl) {
-        alert(`Thesis submitted and uploaded.\n\nFile URL:\n${fileUrl}`);
-      } else {
-        alert(
-          "Thesis submitted for approval. You'll see it after an admin approves it."
-        );
+        console.log("Uploaded file URL:", fileUrl);
       }
 
       onNavigate("dashboard");
     } catch (err) {
       console.error("Upload error:", err?.response?.data || err.message);
-      const msg =
-        err?.response?.data?.error ||
-        err?.response?.data?.message ||
-        err.message ||
-        "Upload failed";
-      alert(msg);
     }
-  };
-
-  const go = (dest) => (e) => {
-    e?.preventDefault();
-    onNavigate(dest);
   };
 
   return (
     <div className="dashboard">
-      <header className="dashboard-header">
-        <div
-          className="logo-area"
-          onClick={go("dashboard")}
-          style={{ cursor: "pointer" }}
-        >
-          <div className="logo-square" />
-          <div>
-            <div className="logo-title">BukSU CoT</div>
-            <div className="logo-subtitle">Capstone Repository</div>
-          </div>
-        </div>
-
-<nav className="nav-links">
-  <a href="#" onClick={go("dashboard")}>Home</a>
-  <a href="#" onClick={go("browse")}>Browse</a>
-  <a href="#" className="active" onClick={(e) => e.preventDefault()}>Upload</a>
-  <a href="#" onClick={go("about")}>About</a>
-  <a href="#" onClick={go("contact")}>Contact</a>
-  <a href="#" onClick={go("profile")}>Profile</a>
-</nav>
-
-        <button className="logout-btn" onClick={onLogout}>
-          Logout
-        </button>
-      </header>
+      <StudentNavbar
+        onLogout={onLogout}
+        onNavigate={onNavigate}
+        active="upload"
+      />
 
       <div className="upload-page">
         <div className="stepper">
@@ -190,6 +231,7 @@ export default function Upload({ onLogout = () => {}, onNavigate = () => {} }) {
                   placeholder="Enter your thesis title"
                 />
               </div>
+
               <div className="field">
                 <label>
                   Authors <span className="req">*</span>
@@ -201,16 +243,44 @@ export default function Upload({ onLogout = () => {}, onNavigate = () => {} }) {
                 />
                 <small>Separate multiple authors with commas</small>
               </div>
+
               <div className="field">
                 <label>
                   Thesis Adviser <span className="req">*</span>
                 </label>
-                <input
-                  value={adviser}
-                  onChange={(e) => setAdviser(e.target.value)}
-                  placeholder="e.g., Dr. Roberto P. Gonzales"
-                />
+
+                <div className="select-wrap">
+                  <select
+                    value={adviser}
+                    onChange={(e) => setAdviser(e.target.value)}
+                    disabled={teachersLoading || !!teachersError}
+                  >
+                    <option value="" disabled>
+                      {teachersLoading
+                        ? "Loading advisers..."
+                        : teachersError
+                          ? "Unable to load advisers"
+                          : "Select adviser"}
+                    </option>
+
+                    {!teachersLoading &&
+                      !teachersError &&
+                      teachers.map((t) => (
+                        <option key={t._id} value={t._id}>
+                          {t.fullName || t.name || t.email}
+                        </option>
+                      ))}
+                  </select>
+                  <svg className="chev" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M7 10l5 5l5-5z" />
+                  </svg>
+                </div>
+
+                {teachersError && (
+                  <small className="error-text">{teachersError}</small>
+                )}
               </div>
+
               <div className="hr" />
               <div className="actions">
                 <button type="button" className="btn-ghost" disabled>

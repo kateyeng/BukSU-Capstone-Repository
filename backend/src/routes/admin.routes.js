@@ -1,6 +1,7 @@
-// backend/src/routes/admin.routes.js
 import express from "express";
 import { protect, requireRole } from "../middleware/auth.js";
+import { requirePermission } from "../middleware/acl.js";
+import Project from "../models/project.model.js";
 
 import {
   getAdminUsers,
@@ -42,5 +43,37 @@ router.get("/permissions", getAdminPermissions);
 
 // PUT /api/admin/permissions  -> Save changes from RolePermissions
 router.put("/permissions", updateAdminPermissions);
+
+/* ========== THESIS / CAPSTONE LIST (ADMIN) ========== */
+/**
+ * GET /api/admin/thesis?status=pending&limit=500
+ * Admin view of all thesis/capstone projects.
+ * - optional ?status=pending|approved|rejected
+ * - optional ?limit=number (default 500, max 1000)
+ */
+router.get(
+  "/thesis",
+  requirePermission("thesis", "view"),
+  async (req, res, next) => {
+    try {
+      const limit = Math.min(Number(req.query.limit) || 500, 1000);
+      const status = req.query.status;
+
+      const filter = {};
+      if (status && status !== "all") filter.status = status;
+
+      const thesis = await Project.find(
+        filter,
+        "title category year abstract authors adviser department status createdAt fileUrl cloudinaryPublicId tags editLock"
+      )
+        .sort({ createdAt: -1 })
+        .limit(limit);
+
+      res.json({ thesis });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 export default router;

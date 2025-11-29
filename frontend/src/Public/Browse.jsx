@@ -1,38 +1,13 @@
 // src/Students/Browse.jsx
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "../index.css";
+import PublicNavbar from "./PublicNavbar.jsx";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-export default function Browse({ onBack, onNavigate }) {
-  const goHome    = (e) => { e?.preventDefault(); onNavigate?.("dashboard"); };
-  const goBrowse  = (e) => { e?.preventDefault(); onNavigate?.("browse"); };
-  const goAbout   = (e) => { e?.preventDefault(); onNavigate?.("about"); };
-  const goContact = (e) => { e?.preventDefault(); onNavigate?.("contact"); };
-  const goLogin   = (e) => { e?.preventDefault(); onNavigate?.("login"); };
-
-  const Header = () => (
-    <header className="dashboard-header">
-      <div className="logo-area" onClick={goHome} style={{cursor:"pointer"}}>
-        <div className="logo-square" />
-        <div>
-          <div className="logo-title">BukSU CoT</div>
-          <div className="logo-subtitle">Capstone Repository</div>
-        </div>
-      </div>
-
-      <nav className="nav-links">
-        <a href="#" onClick={goHome}>Home</a>
-        <a href="#" className="active" onClick={(e) => e.preventDefault()}>Browse</a>
-        {/* Upload removed */}
-        <a href="#" onClick={goAbout}>About</a>
-        <a href="#" onClick={goContact}>Contact</a>
-      </nav>
-
-      {/* Back removed -> Login */}
-      <button className="logout-btn" onClick={goLogin}>Login</button>
-    </header>
-  );
+export default function Browse({ onNavigate }) {
+  const navigate = useNavigate();
 
   const years = ["All Years", 2025, 2024, 2023];
   const departments = [
@@ -41,7 +16,6 @@ export default function Browse({ onBack, onNavigate }) {
     "Automotive",
     "Entertainment and Multimedia Computing",
   ];
-
 
   const [query, setQuery] = useState("");
   const [year, setYear] = useState("All Years");
@@ -63,19 +37,22 @@ export default function Browse({ onBack, onNavigate }) {
         if (year !== "All Years") params.append("year", year);
         if (dept !== "All Departments") params.append("category", dept);
 
-        const res = await fetch(`${API}/api/publicProjects?${params.toString()}`, {
-          credentials: "include",
-          signal: controller.signal,
-        });
+        const res = await fetch(
+          `${API}/api/publicProjects?${params.toString()}`,
+          {
+            credentials: "include",
+            signal: controller.signal,
+          }
+        );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-
-        // If your backend already filters to approved, the next line can simply be:
-        // setProjects(Array.isArray(data.items) ? data.items : []);
-        const items = (data.items || []).filter((p) => (p.status || "pending") === "approved");
+        const items = (data.items || []).filter(
+          (p) => (p.status || "pending") === "approved"
+        );
         setProjects(items);
       } catch (err) {
-        if (err.name !== "AbortError") setError(err.message || "Failed to load projects");
+        if (err.name !== "AbortError")
+          setError(err.message || "Failed to load projects");
       } finally {
         setLoading(false);
       }
@@ -85,43 +62,80 @@ export default function Browse({ onBack, onNavigate }) {
     return () => controller.abort();
   }, [query, year, dept]);
 
+  const openDetails = (id) => {
+    onNavigate?.("details", id);
+    navigate(`/details/${id}`);
+  };
+
   return (
     <div className="dashboard">
-      <Header />
+      <PublicNavbar />
 
       <div className="browse-page">
         <div className="browse-toolbar">
           <div className="searchbar">
             <svg viewBox="0 0 24 24" className="search-icon" aria-hidden>
-              <path fill="currentColor" d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.71.71l.27.28v.79L20 20.5L21.5 19zM10 15.5A5.5 5.5 0 1 1 10 4.5a5.5 5.5 0 0 1 0 11z" />
+              <path
+                fill="currentColor"
+                d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.71.71l.27.28v.79L20 20.5L21.5 19zM10 15.5A5.5 5.5 0 1 1 10 4.5a5.5 5.5 0 0 1 0 11z"
+              />
             </svg>
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by title, author, or keyword..." />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by title, author, or keyword..."
+            />
           </div>
 
           <div className="filters-row">
             <div className="select-pill">
-              <select value={year} onChange={(e) => setYear(e.target.value)}>
-                {years.map((y) => <option key={y} value={y}>{y}</option>)}
+              <select
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+              >
+                {years.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
               </select>
-              <svg className="chev" viewBox="0 0 24 24" aria-hidden><path fill="currentColor" d="M7 10l5 5l5-5z" /></svg>
+              <svg className="chev" viewBox="0 0 24 24" aria-hidden>
+                <path fill="currentColor" d="M7 10l5 5l5-5z" />
+              </svg>
             </div>
 
             <div className="select-pill">
-              <select value={dept} onChange={(e) => setDept(e.target.value)}>
-                {departments.map((d) => <option key={d} value={d}>{d}</option>)}
+              <select
+                value={dept}
+                onChange={(e) => setDept(e.target.value)}
+              >
+                {departments.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
               </select>
-              <svg className="chev" viewBox="0 0 24 24" aria-hidden><path fill="currentColor" d="M7 10l5 5l5-5z" /></svg>
+              <svg className="chev" viewBox="0 0 24 24" aria-hidden>
+                <path fill="currentColor" d="M7 10l5 5l5-5z" />
+              </svg>
             </div>
           </div>
         </div>
 
         <div className="browse-count">
-          {loading ? "Loading projects..." : error ? `Error: ${error}` : `Showing ${projects.length} approved project${projects.length !== 1 ? "s" : ""}`}
+          {loading
+            ? "Loading projects..."
+            : error
+              ? `Error: ${error}`
+              : `Showing ${projects.length} approved project${projects.length !== 1 ? "s" : ""
+              }`}
         </div>
 
         <div className="browse-grid">
           {!loading && !error && projects.length === 0 && (
-            <p style={{ textAlign: "center", color: "#888" }}>No approved projects found.</p>
+            <p style={{ textAlign: "center", color: "#888" }}>
+              No approved projects found.
+            </p>
           )}
 
           {projects.map((p) => (
@@ -131,26 +145,60 @@ export default function Browse({ onBack, onNavigate }) {
 
               <div className="meta">
                 <div className="meta-item">
-                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
-                    <path fill="currentColor" d="M12 12a5 5 0 1 0-5-5a5 5 0 0 0 5 5m0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5" />
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    aria-hidden
+                  >
+                    <path
+                      fill="currentColor"
+                      d="M12 12a5 5 0 1 0-5-5a5 5 0 0 0 5 5m0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5"
+                    />
                   </svg>
-                  <span>{Array.isArray(p.authors) ? p.authors.join(", ") : p.authors}</span>
+                  <span>
+                    {Array.isArray(p.authors)
+                      ? p.authors.join(", ")
+                      : p.authors}
+                  </span>
                 </div>
                 <div className="meta-item">
-                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
-                    <path fill="currentColor" d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2M5 9h14v10H5z" />
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    aria-hidden
+                  >
+                    <path
+                      fill="currentColor"
+                      d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2M5 9h14v10H5z"
+                    />
                   </svg>
                   <span>{p.year}</span>
                 </div>
               </div>
 
               <p className="project-excerpt">
-                {p.abstract?.slice(0, 180)}{p.abstract?.length > 180 ? "..." : ""}
+                {p.abstract?.slice(0, 180)}
+                {p.abstract?.length > 180 ? "..." : ""}
               </p>
 
               <div className="card-actions">
-                <button className="btn-card btn-block" onClick={() => onNavigate?.("details", p._id)}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h12v2H3z" /></svg>
+                <button
+                  className="btn-card btn-block"
+                  onClick={() => openDetails(p._id)}
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    aria-hidden
+                  >
+                    <path
+                      fill="currentColor"
+                      d="M3 6h18v2H3zm0 5h18v2H3zm0 5h12v2H3z"
+                    />
+                  </svg>
                   View Details
                 </button>
               </div>

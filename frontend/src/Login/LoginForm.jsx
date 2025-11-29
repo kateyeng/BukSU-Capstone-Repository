@@ -1,8 +1,8 @@
-// src/pages/LoginPage.jsx
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios.js";
 import ReCAPTCHA from "react-google-recaptcha";
+import toast from "react-hot-toast";
 
 /* eslint-disable react/prop-types */
 export default function LoginPage({ setUser }) {
@@ -99,21 +99,39 @@ function LoginForm({ onSwitch, onForgot, onSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) return alert("Please enter email & password");
-    if (!captcha) return alert("Please verify CAPTCHA");
+
+    if (!email || !password) {
+      toast.error("Please enter email & password");
+      return;
+    }
+    if (!captcha) {
+      toast.error("Please verify CAPTCHA");
+      return;
+    }
 
     setLoading(true);
     try {
-      const { data } = await api.post("/api/auth/login", {
+      const loginPromise = api.post("/api/auth/login", {
         email,
         password,
         captcha,
       });
 
-      alert(data.message || "Login successful");
+      const { data } = await toast.promise(
+        loginPromise,
+        {
+          loading: "Logging in...",
+          success: (res) =>
+            res.data?.message || "Login successful. Redirecting...",
+          error: (err) =>
+            err?.response?.data?.message || "Login failed. Please try again.",
+        },
+        { duration: 3000 }
+      );
+
       onSuccess?.(data.user); // pass user up to LoginPage
     } catch (error) {
-      alert(error?.response?.data?.message || "Login failed");
+      console.error("Login error:", error);
       try {
         recaptchaRef.current?.reset();
       } catch {
