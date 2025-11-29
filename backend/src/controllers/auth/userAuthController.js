@@ -9,7 +9,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// LOGIN
+// ====================== LOGIN ======================
 export async function loginUser(req, res) {
   const { email, password, captcha } = req.body;
 
@@ -57,9 +57,10 @@ export async function loginUser(req, res) {
   }
 }
 
-// REGISTER
+// ====================== REGISTER ======================
 export async function registerUser(req, res) {
-  const { fullName, email, password } = req.body;
+  // ⬅️ NOW includes role from body (optional)
+  const { fullName, email, password, role } = req.body;
 
   try {
     if (!fullName || !email || !password) {
@@ -78,21 +79,38 @@ export async function registerUser(req, res) {
 
     const hashed = await bcrypt.hash(password, 10);
 
-    // ❗ New accounts start as "guest"
+    // 🔐 Allowed roles defined in your schema
+    const allowedRoles = ["guest", "student", "teacher", "admin"];
+    const requestedRole = typeof role === "string" ? role.toLowerCase() : null;
+
+    // ✅ Decide what role new signups are allowed to have
+    // Option A: everyone who signs up is a student
+    let userRole = "student";
+
+    // If you want to honour "guest" from frontend you can do:
+    if (requestedRole === "guest") {
+      userRole = "guest";
+    }
+
+    // ⚠️ Typically you do NOT allow "teacher" or "admin" from public signup.
+    // Those should be set later by an admin in your admin panel.
+
     const newUser = await User.create({
       fullName,
       email,
       password: hashed,
-      role: "guest",
+      role: userRole,
     });
 
-    // Set cookie immediately on signup
+    // Set cookie immediately on signup (JWT with id + role)
     generateToken(newUser, res);
 
     // Optional welcome email
     try {
       await sendWelcomeEmail(email, fullName);
-    } catch {}
+    } catch (_) {
+      // don't break signup if email fails
+    }
 
     return res.status(201).json({
       message: "Successfully created an account",
@@ -105,7 +123,7 @@ export async function registerUser(req, res) {
   }
 }
 
-// LOGOUT
+// ====================== LOGOUT ======================
 export async function logoutUser(_req, res) {
   res.cookie("jwt", "", {
     httpOnly: true,

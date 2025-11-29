@@ -12,7 +12,7 @@ function uploadPdfBufferToCloudinary(file) {
         public_id: `${Date.now()}-${file.originalname}`,
         type: "upload",
         access_mode: "public",
-        access_control: [],  // no “blocked for delivery” rules
+        access_control: [], // no “blocked for delivery” rules
       },
       (err, result) => {
         if (err) return reject(err);
@@ -24,7 +24,7 @@ function uploadPdfBufferToCloudinary(file) {
   });
 }
 
-/* ---------- CREATE PROJECT (teacher/admin) ---------- */
+/* ---------- CREATE PROJECT (teacher/admin/student via protected routes) ---------- */
 export const createProject = async (req, res) => {
   try {
     const {
@@ -40,9 +40,10 @@ export const createProject = async (req, res) => {
     } = req.body;
 
     if (!title || !category || !year || !abstract || !authors) {
-      return res
-        .status(400)
-        .json({ message: "Missing required fields (title, category, year, abstract, authors)" });
+      return res.status(400).json({
+        message:
+          "Missing required fields (title, category, year, abstract, authors)",
+      });
     }
 
     if (!req.file) {
@@ -53,7 +54,7 @@ export const createProject = async (req, res) => {
       return res.status(400).json({ message: "Only PDF files are allowed" });
     }
 
-    // Convert authors string → array
+    // Convert authors → array
     let authorsArr = [];
     if (Array.isArray(authors)) {
       authorsArr = authors;
@@ -86,33 +87,33 @@ export const createProject = async (req, res) => {
       abstract,
       authors: authorsArr,
       adviser: adviser || "",
-      // department,
+      department: department || "",
       tags,
       status,
       owner: ownerId,
 
-      // ✅ Cloudinary fields
+      // Cloudinary fields
       fileUrl: uploadResult.secure_url,
       cloudinaryPublicId: uploadResult.public_id,
 
-      // optional legacy local path (not used now)
+      // legacy local path (not used now)
       filePath: null,
 
       mimeType: req.file.mimetype,
       fileSize: req.file.size,
     });
 
-
     return res.status(201).json(project);
   } catch (err) {
     console.error("Create project error:", err);
-    return res
-      .status(500)
-      .json({ message: "Upload failed", error: err.message || "Unknown error" });
+    return res.status(500).json({
+      message: "Upload failed",
+      error: err.message || "Unknown error",
+    });
   }
 };
 
-/* ---------- UPDATE PROJECT (simple metadata update + optional new file) ---------- */
+/* ---------- UPDATE PROJECT ---------- */
 export const updateProject = async (req, res) => {
   try {
     const { id } = req.params;
@@ -161,19 +162,15 @@ export const updateProject = async (req, res) => {
       if (req.file.mimetype !== "application/pdf") {
         return res.status(400).json({ message: "Only PDF files are allowed" });
       }
+
       const uploadResult = await uploadPdfBufferToCloudinary(req.file);
 
-      // ✅ Cloudinary fields
       update.fileUrl = uploadResult.secure_url;
       update.cloudinaryPublicId = uploadResult.public_id;
-
-      // optional: clear legacy filePath
       update.filePath = null;
-
       update.mimeType = req.file.mimetype;
       update.fileSize = req.file.size;
     }
-
 
     const project = await Project.findByIdAndUpdate(id, update, { new: true });
     if (!project) {
@@ -183,9 +180,10 @@ export const updateProject = async (req, res) => {
     return res.json(project);
   } catch (err) {
     console.error("Update project error:", err);
-    return res
-      .status(500)
-      .json({ message: "Update failed", error: err.message || "Unknown error" });
+    return res.status(500).json({
+      message: "Update failed",
+      error: err.message || "Unknown error",
+    });
   }
 };
 
@@ -197,13 +195,14 @@ export const deleteProject = async (req, res) => {
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
     }
-    // (Optional) you could also delete from Cloudinary using the public_id
+    // optional: delete from Cloudinary using project.cloudinaryPublicId
     return res.json({ message: "Deleted" });
   } catch (err) {
     console.error("Delete project error:", err);
-    return res
-      .status(500)
-      .json({ message: "Delete failed", error: err.message || "Unknown error" });
+    return res.status(500).json({
+      message: "Delete failed",
+      error: err.message || "Unknown error",
+    });
   }
 };
 
@@ -213,25 +212,25 @@ export const downloadProject = async (req, res) => {
     const { id } = req.params;
     const project = await Project.findById(id);
     if (!project) {
-  return res.status(404).json({ message: "Project or file not found" });
+      return res.status(404).json({ message: "Project or file not found" });
     }
 
-    // ✅ Prefer Cloudinary URL
+    // Prefer Cloudinary URL
     if (project.fileUrl) {
       return res.redirect(project.fileUrl);
     }
 
-    // Fallback for very old records that still use filePath
+    // Fallback: old records using filePath
     if (project.filePath) {
       return res.redirect(project.filePath);
     }
 
     return res.status(404).json({ message: "Project or file not found" });
-
   } catch (err) {
     console.error("Download project error:", err);
-    return res
-      .status(500)
-      .json({ message: "Download failed", error: err.message || "Unknown error" });
+    return res.status(500).json({
+      message: "Download failed",
+      error: err.message || "Unknown error",
+    });
   }
 };

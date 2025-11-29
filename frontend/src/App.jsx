@@ -18,7 +18,7 @@ import PublicAbout from "./Public/About.jsx";
 import PublicContact from "./Public/Contact.jsx";
 
 /* ===== Auth ===== */
-import LoginForm from "./Login/LoginForm.jsx";      // 👈 use existing file
+import LoginForm from "./Login/LoginForm.jsx";
 import SignUpForm from "./Login/SignUpForm.jsx";
 import ForgotPassword from "./Login/ForgotPassword.jsx";
 import Code from "./Login/Code.jsx";
@@ -37,12 +37,15 @@ import StudentBookmarks from "./student/Bookmarks.jsx";
 /* ===== Teacher (login required) ===== */
 import TeacherDashboard from "./Teacher/Dashboard.jsx";
 import TeacherThesis from "./Teacher/Thesis.jsx";
-import TeacherUsers from "./Teacher/Users.jsx";
+import TeacherActivity from "./Teacher/Activity.jsx";
 
 /* ===== Admin (login required) ===== */
 import AdminLayout from "./Admin/adminLayout.jsx";
 import AdminDashboard from "./Admin/adminDashboard.jsx";
 import AdminUsers from "./Admin/adminUsers.jsx";
+import RolePermissions from "./Admin/RolePermissions.jsx";
+
+const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 /* =================== OAUTH NOTICE =================== */
 function UseOauthNotice() {
@@ -91,12 +94,11 @@ function UseOauthNotice() {
 }
 
 /* =================== HELPERS =================== */
-const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 // SUPER-forgiving role normalizer
 const normRole = (v) => {
   const raw = String(v || "").trim().toLowerCase();
-  const compact = raw.replace(/\s+/g, ""); // remove spaces
+  const compact = raw.replace(/\s+/g, "");
 
   if (raw.includes("admin") || compact === "admin") return "admin";
   if (raw.includes("teach") || compact === "teacher") return "teacher";
@@ -108,7 +110,6 @@ const normRole = (v) => {
 // 🔐 Guard for private routes
 function RequireRole({ user, roles, children }) {
   if (!user) return <Navigate to="/login" replace />;
-
   if (!roles.includes(user.role)) return <Navigate to="/" replace />;
   return children;
 }
@@ -266,7 +267,7 @@ function TeacherHome({ onLogout }) {
       onNavigate={(dest) => {
         if (dest === "dashboard") nav("/teacher");
         else if (dest === "thesis") nav("/teacher/thesis");
-        else if (dest === "users") nav("/teacher/users");
+        else if (dest === "activity") nav("/teacher/activity");
       }}
     />
   );
@@ -276,12 +277,11 @@ function TeacherThesisPage({ onLogout }) {
   return <TeacherThesis onLogout={onLogout} />;
 }
 
-function TeacherUsersPage({ onLogout }) {
-  return <TeacherUsers onLogout={onLogout} />;
+function TeacherActivityPage({ onLogout }) {
+  return <TeacherActivity onLogout={onLogout} />;
 }
 
 /* ---------- Auth wrappers ---------- */
-// This wraps your ./Login/LoginForm.jsx and handles setUser + redirect
 function LoginPage({ setUser }) {
   const nav = useNavigate();
 
@@ -422,8 +422,33 @@ export default function App() {
         {/* ===== PUBLIC (guest) ===== */}
         <Route path="/" element={<PublicHomePage />} />
         <Route path="/dashboard" element={<PublicHomePage />} />
-        <Route path="/browse" element={<PublicBrowsePage />} />
-        <Route path="/details/:id" element={<PublicDetailsPage />} />
+
+        {/* if a student hits /browse, send them to /student/browse */}
+        <Route
+          path="/browse"
+          element={
+            user && user.role === "student" ? (
+              <Navigate to="/student/browse" replace />
+            ) : (
+              <PublicBrowsePage />
+            )
+          }
+        />
+
+        {/* /details/:id → student view if logged-in student, else public view */}
+        <Route
+          path="/details/:id"
+          element={
+            user && user.role === "student" ? (
+              <RequireRole user={user} roles={["student"]}>
+                <StudentDetailsPage onLogout={logout} />
+              </RequireRole>
+            ) : (
+              <PublicDetailsPage />
+            )
+          }
+        />
+
         <Route path="/about" element={<PublicAbout />} />
         <Route path="/contact" element={<PublicContact />} />
 
@@ -525,10 +550,10 @@ export default function App() {
           }
         />
         <Route
-          path="/teacher/users"
+          path="/teacher/activity"
           element={
             <RequireRole user={user} roles={["teacher"]}>
-              <TeacherUsersPage onLogout={logout} />
+              <TeacherActivityPage onLogout={logout} />
             </RequireRole>
           }
         />
@@ -545,6 +570,7 @@ export default function App() {
           <Route index element={<AdminDashboard />} />
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="users" element={<AdminUsers currentUser={user} />} />
+          <Route path="permissions" element={<RolePermissions />} />
         </Route>
 
         {/* Fallback → public home */}

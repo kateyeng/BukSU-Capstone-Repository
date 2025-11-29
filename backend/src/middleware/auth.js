@@ -6,11 +6,15 @@ import Project from "../models/project.model.js";
 export async function protect(req, res, next) {
   try {
     const token = req.cookies?.jwt; // ⬅️ must match cookie name
-    if (!token) return res.status(401).json({ message: "Not authenticated" });
+    if (!token) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id).select("-password");
-    if (!user) return res.status(401).json({ message: "User not found" });
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
 
     req.user = user;
     next();
@@ -20,11 +24,28 @@ export async function protect(req, res, next) {
   }
 }
 
-
-export const requireRole = (...roles) => (req, _res, next) => {
-  if (!req.user || !roles.includes(req.user.role)) {
-    return _res.status(403).json({ message: "Access denied" });
+export const requireRole = (...roles) => (req, res, next) => {
+  if (!req.user) {
+    console.warn("requireRole: no user on request", {
+      path: req.originalUrl,
+      method: req.method,
+    });
+    return res.status(401).json({ message: "Not authenticated" });
   }
+
+  const role = String(req.user.role || "").toLowerCase();
+  const allowed = roles.map((r) => String(r).toLowerCase());
+
+  if (!allowed.includes(role)) {
+    console.warn("requireRole denied", {
+      path: req.originalUrl,
+      method: req.method,
+      role,
+      allowed,
+    });
+    return res.status(403).json({ message: "Access denied" });
+  }
+
   next();
 };
 

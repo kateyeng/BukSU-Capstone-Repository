@@ -1,3 +1,4 @@
+// backend/src/server.js
 import express from "express";
 import morgan from "morgan";
 import { connectDB } from "./config/db.js";
@@ -14,6 +15,7 @@ import cookieParser from "cookie-parser";
 import path from "path";
 import "./config/passport.js";
 import bookmarksRouter from "./routes/bookmarks.routes.js";
+import publicRbacRoutes from "./routes/rbac.public.routes.js"; // 👈 NEW
 
 // index sync
 import mongoose from "mongoose";
@@ -98,6 +100,7 @@ app.use("/api/student", studentRoutes);
 app.use("/api/teacher", teacherRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/rbac", publicRbacRoutes); // 👈 NEW
 
 // start
 app.listen(PORT, () => {

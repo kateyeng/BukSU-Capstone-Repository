@@ -369,3 +369,59 @@
   background: #f8d7da;
   color: #842029;
 }
+
+
+.pagination {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* ========== PRINT: ONLY THE ACTIVITY CARD ========== */
+@media print {
+
+  /* Hide everything by default */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Show only the activity card starting at its title */
+  .activity-print-area,
+  .activity-print-area * {
+    visibility: visible !important;
+  }
+
+  .activity-print-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    margin: 0;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  /* No sidebar / page padding in print */
+  .admin-main {
+    margin: 0;
+    padding: 0;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  table.table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+}

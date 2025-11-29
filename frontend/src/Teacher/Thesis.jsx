@@ -1,7 +1,7 @@
-// src/teacher/Thesis.jsx  (or wherever you place it)
+// src/Teacher/Thesis.jsx
 import { useEffect, useMemo, useState } from "react";
-import { NavLink } from "react-router-dom";
 import EditThesisModal from "./EditThesisModal.jsx";
+import Sidebar from "./Sidebar.jsx";          // 👈 use shared sidebar
 import "./teacher.css";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -15,10 +15,10 @@ export default function TeacherThesisPage() {
   const [busyId, setBusyId] = useState("");
   const [previewItem, setPreviewItem] = useState(null);
 
+  // ================= LOAD LIST =================
   async function load() {
     setLoading(true);
     try {
-      // ✅ TEACHER endpoint, not /api/admin
       const res = await fetch(`${API}/api/teacher/thesis?limit=500`, {
         credentials: "include",
       });
@@ -43,10 +43,10 @@ export default function TeacherThesisPage() {
 
   function buildDownloadUrl(thesis) {
     if (!thesis?._id) return null;
-    // public/thesis download endpoint stays the same
     return `${API}/api/publicProjects/${thesis._id}/download`;
   }
 
+  // ================= STATUS UPDATE =================
   async function updateStatus(id, next, extra = {}) {
     const prev = items.find((i) => i._id === id);
     console.log(
@@ -56,13 +56,13 @@ export default function TeacherThesisPage() {
     );
 
     setBusyId(id);
+
     // optimistic UI
     setItems((list) =>
       list.map((i) => (i._id === id ? { ...i, status: next } : i))
     );
 
     try {
-      // ✅ TEACHER endpoint for approve/reject (sends email in controller)
       const res = await fetch(`${API}/api/teacher/thesis/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -85,7 +85,8 @@ export default function TeacherThesisPage() {
       });
 
       toast(
-        `${next === "approved" ? "Approved" : "Rejected"} — email notification queued.`
+        `${next === "approved" ? "Approved" : "Rejected"
+        } — email notification queued.`
       );
     } catch (e) {
       console.error("[TEACHER][STATUS][ERROR]", e);
@@ -109,6 +110,7 @@ export default function TeacherThesisPage() {
     updateStatus(t._id, "rejected", reason ? { reason } : {});
   }
 
+  // ================= FILTERING =================
   const filtered = useMemo(
     () =>
       items.filter((i) => {
@@ -124,9 +126,10 @@ export default function TeacherThesisPage() {
 
   const previewUrl = previewItem ? buildDownloadUrl(previewItem) : null;
 
+  // ================= RENDER =================
   return (
     <div className="admin-shell">
-      <Sidebar />
+      <Sidebar /> {/* 👈 shared sidebar with Dashboard / Activity */}
       <main className="admin-main">
         <div className="page-head">
           <div>
@@ -183,35 +186,45 @@ export default function TeacherThesisPage() {
                     {t.status || "pending"}
                   </span>
                 </td>
+
+                {/* ===== ACTION ICON BOXES (same dark style) ===== */}
                 <td className="actions">
+                  {/* Approve ✔ */}
                   <button
-                    className="btn success"
+                    className="btn icon-box"
+                    style={{ background: "#111827", color: "#fff" }}
                     onClick={() => onApprove(t)}
                     disabled={busyId === t._id}
                     title="Approve and notify"
                   >
-                    {busyId === t._id ? "Working…" : "Approve"}
+                    ✔
                   </button>
 
+                  {/* Reject ✖ */}
                   <button
-                    className="btn warn"
+                    className="btn icon-box"
+                    style={{ background: "#111827", color: "#fff" }}
                     onClick={() => onReject(t)}
                     disabled={busyId === t._id}
                     title="Reject and notify"
                   >
-                    Reject
+                    ✖
                   </button>
 
+                  {/* Edit ✎ */}
                   <button
-                    className="btn brand"
+                    className="btn icon-box"
+                    style={{ background: "#111827", color: "#fff" }}
                     onClick={() => setEditItem(t)}
                     disabled={busyId === t._id}
+                    title="Edit thesis"
                   >
-                    Edit
+                    ✎
                   </button>
 
+                  {/* View PDF 📄 */}
                   <button
-                    className="btn"
+                    className="btn icon-box"
                     style={{ background: "#111827", color: "#fff" }}
                     onClick={() => {
                       const url = buildDownloadUrl(t);
@@ -225,7 +238,7 @@ export default function TeacherThesisPage() {
                     disabled={busyId === t._id}
                     title="View thesis PDF"
                   >
-                    View PDF
+                    📄
                   </button>
                 </td>
               </tr>
@@ -238,6 +251,7 @@ export default function TeacherThesisPage() {
           </tbody>
         </table>
 
+        {/* Edit modal */}
         {editItem && (
           <EditThesisModal
             item={editItem}
@@ -252,6 +266,7 @@ export default function TeacherThesisPage() {
           />
         )}
 
+        {/* Fullscreen PDF preview */}
         {previewItem && previewUrl && (
           <div
             className="pdf-fullscreen-overlay"
@@ -310,47 +325,6 @@ export default function TeacherThesisPage() {
         )}
       </main>
     </div>
-  );
-}
-
-function Sidebar() {
-  const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
-
-  return (
-    <aside className="admin-sidebar">
-      <div className="brand">
-        <span className="dot" /> Teacher Panel
-      </div>
-      <nav className="nav">
-        <NavLink
-          to="/teacher"
-          end
-          className={({ isActive }) => (isActive ? "active" : undefined)}
-        >
-          Dashboard
-        </NavLink>
-        <NavLink
-          to="/teacher/thesis"
-          className={({ isActive }) => (isActive ? "active" : undefined)}
-        >
-          Thesis
-        </NavLink>
-      </nav>
-      <div className="sidebar-spacer" />
-      <button
-        className="logout"
-        onClick={() => {
-          fetch(`${API}/api/auth/logoutUser`, {
-            method: "POST",
-            credentials: "include",
-          }).finally(() => {
-            window.location.href = "/login";
-          });
-        }}
-      >
-        Logout
-      </button>
-    </aside>
   );
 }
 

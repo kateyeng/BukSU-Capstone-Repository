@@ -1566,3 +1566,46 @@ form button.link {
     font-size: 20px;
   }
 }
+
+/* two big cards side-by-side, like admin pies */
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.chart-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-inner {
+  margin-top: 10px;
+  height: 260px;
+}
+
+/* stack on mobile */
+@media (max-width: 900px) {
+  .charts-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.btn-back-link {
+  background: transparent;
+  border: none;
+  padding: 6px 0 0;
+  font-size: 14px;
+  color: #4b5563;
+  text-align: center;
+  cursor: pointer;
+  text-decoration: none;
+  /* 🔥 underline removed */
+}
+
+.btn-back-link:hover {
+  color: #111827;
+  text-decoration: none;
+  /* ensure hover also has no underline */
+}

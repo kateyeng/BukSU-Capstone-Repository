@@ -1,9 +1,25 @@
 // src/teacher/Dashboard.jsx
 import { useEffect, useMemo, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import "./teacher.css";
+import Sidebar from "./Sidebar.jsx";
+
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+} from "recharts";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+const STATUS_COLORS = {
+  Approved: "#22c55e", // green
+  Pending: "#eab308",  // yellow
+  Rejected: "#ef4444", // red
+};
 
 export default function TeacherDashboard() {
   const [loading, setLoading] = useState(true);
@@ -37,13 +53,40 @@ export default function TeacherDashboard() {
     };
   }, []);
 
+  /* ====== totals ====== */
   const totals = useMemo(() => {
     const pending = thesis.filter(
       (t) => (t.status || "pending") === "pending"
     ).length;
     const approved = thesis.filter((t) => t.status === "approved").length;
-    return { thesis: thesis.length, pending, approved };
+    const rejected = thesis.filter((t) => t.status === "rejected").length;
+    return { thesis: thesis.length, pending, approved, rejected };
   }, [thesis]);
+
+  /* ====== chart data ====== */
+  const statusData = useMemo(
+    () => [
+      { name: "Approved", value: totals.approved },
+      { name: "Pending", value: totals.pending },
+      { name: "Rejected", value: totals.rejected },
+    ],
+    [totals]
+  );
+
+  // simple “per year” pie like “Users by Role”
+  const yearData = useMemo(() => {
+    const map = {};
+    thesis.forEach((t) => {
+      const year = t.year || "Unknown";
+      map[year] = (map[year] || 0) + 1;
+    });
+    return Object.entries(map).map(([year, value]) => ({
+      name: year,
+      value,
+    }));
+  }, [thesis]);
+
+  const YEAR_COLORS = ["#a855f7", "#3b82f6", "#22c55e", "#f97316", "#06b6d4"];
 
   return (
     <div className="admin-shell">
@@ -61,9 +104,16 @@ export default function TeacherDashboard() {
             >
               Manage Thesis
             </button>
+            <button
+              className="btn"
+              onClick={() => navigate("/teacher/activity")}
+            >
+              Activity Log
+            </button>
           </div>
         </div>
 
+        {/* top cards */}
         <section className="cards">
           <div className="card">
             <div className="label">Thesis Submissions</div>
@@ -79,9 +129,71 @@ export default function TeacherDashboard() {
           </div>
         </section>
 
-        <div
-          style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}
-        >
+        {/* ===== CHARTS LIKE ADMIN (2 PIE CHARTS) ===== */}
+        <section className="charts-row">
+          {/* Thesis by Status */}
+          <div className="card chart-card">
+            <div className="label">Thesis by Status</div>
+            <div className="chart-inner">
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie
+                    data={statusData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={2}
+                  >
+                    {statusData.map((entry) => (
+                      <Cell
+                        key={entry.name}
+                        fill={STATUS_COLORS[entry.name]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend verticalAlign="bottom" height={36} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Thesis by Year */}
+          <div className="card chart-card">
+            <div className="label">Thesis by Year</div>
+            <div className="chart-inner">
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie
+                    data={yearData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={2}
+                  >
+                    {yearData.map((entry, index) => (
+                      <Cell
+                        key={entry.name}
+                        fill={YEAR_COLORS[index % YEAR_COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend verticalAlign="bottom" height={36} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </section>
+
+        {/* recent table */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
           <div className="card">
             <div className="label">Recent Thesis</div>
             <table className="table" style={{ marginTop: 10 }}>
@@ -115,44 +227,5 @@ export default function TeacherDashboard() {
         </div>
       </main>
     </div>
-  );
-}
-
-function Sidebar() {
-  const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
-
-  return (
-    <aside className="admin-sidebar">
-      <div className="brand">
-        <span className="dot" /> Teacher Panel
-      </div>
-      <nav className="nav">
-        <NavLink
-          to="/teacher"
-          end
-          className={({ isActive }) => (isActive ? "active" : undefined)}
-        >
-          Dashboard
-        </NavLink>
-        <NavLink
-          to="/teacher/thesis"
-          className={({ isActive }) => (isActive ? "active" : undefined)}
-        >
-          Thesis
-        </NavLink>
-      </nav>
-      <div className="sidebar-spacer" />
-      <button
-        className="logout"
-        onClick={() => {
-          fetch(`${API}/api/auth/logoutUser`, {
-            method: "POST",
-            credentials: "include",
-          }).finally(() => (location.href = "/login"));
-        }}
-      >
-        Logout
-      </button>
-    </aside>
   );
 }

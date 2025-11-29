@@ -1,3 +1,4 @@
+// src/Admin/adminLayout.jsx
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import "./admin.css";
 
@@ -6,7 +7,7 @@ export default function AdminLayout({ currentUser, onLogout }) {
 
     const handleLogout = () => {
         if (onLogout) onLogout();
-        // after logout you already navigate to "/", so nothing else needed
+        // if your onLogout already redirects, no need to navigate here
     };
 
     return (
@@ -26,6 +27,7 @@ export default function AdminLayout({ currentUser, onLogout }) {
                     >
                         Dashboard
                     </NavLink>
+
                     <NavLink
                         to="/admin/users"
                         className={({ isActive }) =>
@@ -33,6 +35,16 @@ export default function AdminLayout({ currentUser, onLogout }) {
                         }
                     >
                         Users
+                    </NavLink>
+
+                    {/* 👉 NEW: Role Permissions navigation */}
+                    <NavLink
+                        to="/admin/permissions"
+                        className={({ isActive }) =>
+                            "admin-nav-link" + (isActive ? " admin-nav-link-active" : "")
+                        }
+                    >
+                        Role Permissions
                     </NavLink>
                 </nav>
 

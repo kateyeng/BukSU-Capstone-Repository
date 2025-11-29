@@ -1,4 +1,4 @@
-// routes/public.routes.js
+// backend/src/routes/public.routes.js
 import express from "express";
 import path from "path";
 import fs from "fs";
@@ -37,11 +37,9 @@ const upload = multer({
 const toAbsolute = (fp) =>
   path.isAbsolute(fp) ? fp : path.join(process.cwd(), fp);
 
-// Who is making the request? (auth-optional: cookie, header, or body)
 const getRequesterId = (req) =>
   req?.user?._id || req?.headers?.["x-user-id"] || req?.body?.owner || null;
 
-// Null-safe: only use this if you have a Project document and need its owner
 function getOwnerIdFromDoc(doc) {
   const o = doc && doc.owner;
   if (!o) return null;
@@ -64,12 +62,12 @@ router.post("/", upload.single("file"), async (req, res) => {
 
     // 1) Upload the file to Cloudinary
     const uploadResult = await cloudinary.uploader.upload(req.file.path, {
-      folder: "buksu-thesis",  // choose any folder name you like
-      resource_type: "raw",    // for PDFs / non-images
+      folder: "buksu-thesis",
+      resource_type: "raw",
     });
 
     // optional: delete local temp file
-    fs.unlink(req.file.path, () => {});
+    fs.unlink(req.file.path, () => { });
 
     const ownerId = getRequesterId(req);
     const tags = String(keywords || "")
@@ -90,16 +88,14 @@ router.post("/", upload.single("file"), async (req, res) => {
       adviser: adviser ? String(adviser).trim() : undefined,
       ...(ownerId ? { owner: ownerId } : {}),
 
-      // We can keep filePath for old compatibility or set to undefined.
       filePath: undefined,
       mimeType: req.file.mimetype,
       fileSize: req.file.size,
       tags,
       status: "pending",
 
-      // NEW FIELDS
       fileUrl: uploadResult.secure_url,
-      cloudinaryPublicId: uploadResult.public_id, // useful if you want to delete later
+      cloudinaryPublicId: uploadResult.public_id,
     });
 
     res.status(201).json({ project: doc.toPublic ? doc.toPublic() : doc });
@@ -109,21 +105,27 @@ router.post("/", upload.single("file"), async (req, res) => {
   }
 });
 
-
 /* ============== LIST / SEARCH (approved by default) ============== */
 router.get("/", async (req, res) => {
   try {
     const { q = "", page = 1, limit = 12, category, year, status, mine } =
       req.query;
 
+    // case-insensitive status, default = "approved"
+    let statusFilter;
+    if (status) {
+      statusFilter = new RegExp(`^${String(status).trim()}$`, "i");
+    } else {
+      statusFilter = /^approved$/i;
+    }
+
     const filter = {
       ...(q ? { title: { $regex: q, $options: "i" } } : {}),
       ...(category ? { category } : {}),
       ...(year ? { year: Number(year) } : {}),
-      ...(status ? { status } : { status: "approved" }), // default to approved
+      status: statusFilter,
     };
 
-    // If ?mine=1, restrict to the current teacher's documents (auth optional)
     const ownerId = getRequesterId(req);
     if (mine === "1" && ownerId) {
       filter.owner = ownerId;
@@ -159,13 +161,13 @@ router.get("/stats", async (req, res) => {
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     const mine = req.query.mine === "1";
-    const approvedOnly = req.query.approvedOnly !== "0"; // default true
+    const approvedOnly = req.query.approvedOnly !== "0";
 
-    const ownerId = getRequesterId(req); // safe for public calls
+    const ownerId = getRequesterId(req);
 
     const ownerFilter = mine && ownerId ? { owner: ownerId } : {};
     const approvedFilter = approvedOnly
-      ? { status: "approved", isPublished: true }
+      ? { status: /^approved$/i, isPublished: { $ne: false } }
       : {};
 
     const base = { ...ownerFilter, ...approvedFilter };
@@ -187,14 +189,15 @@ router.get("/stats", async (req, res) => {
   }
 });
 
-/* ============== DETAILS ============== */
+/* ============== DETAILS (no status gate, just return the doc) ============== */
 router.get("/:id", async (req, res) => {
   try {
     const p = await Project.findById(req.params.id);
+
+    console.log("[public.details] id =", req.params.id, "doc?", !!p);
+
     if (!p) return res.status(404).json({ message: "Not found" });
-    if (p.status !== "approved" || p.isPublished === false) {
-      return res.status(404).json({ message: "Not found" });
-    }
+
     res.json(p.toPublic ? p.toPublic() : p);
   } catch (e) {
     console.error("Details error:", e);
@@ -210,17 +213,14 @@ router.get("/:id/download", async (req, res) => {
       return res.status(404).json({ message: "File not found" });
     }
 
-    // 1) New Cloudinary field
     if (p.fileUrl) {
-      return res.redirect(p.fileUrl);    // 🔁 send browser to Cloudinary
+      return res.redirect(p.fileUrl);
     }
 
-    // 2) Old records where filePath is actually a full URL
     if (p.filePath && p.filePath.startsWith("http")) {
       return res.redirect(p.filePath);
     }
 
-    // 3) Legacy local files on disk
     if (p.filePath) {
       const abs = toAbsolute(p.filePath);
       return res.download(abs);
@@ -232,6 +232,5 @@ router.get("/:id/download", async (req, res) => {
     res.status(500).json({ error: "Failed to download file" });
   }
 });
-
 
 export default router;
