@@ -1,37 +1,17 @@
 import { useState } from "react";
-<<<<<<< HEAD
 import axios from "../api/axios.js"; // Make sure this points to your axios instance
 
 export default function ForgotPassword({ onBack, onEmailSubmitted }) {
-=======
-import { useNavigate } from "react-router-dom";
-import axios from "../api/axios.js"; // axios instance
-import toast from "react-hot-toast";
-
-export default function ForgotPassword({ onBack, onEmailSubmitted }) {
-  const navigate = useNavigate();
-
->>>>>>> major-changes
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-<<<<<<< HEAD
-=======
-  const handleBack = () => {
-    // If App.jsx passes onBack, use it; otherwise go to /login
-    if (onBack) onBack();
-    else navigate("/login");
-  };
-
->>>>>>> major-changes
   const submit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage("");
 
     try {
-<<<<<<< HEAD
       // Send request to backend
       const response = await axios.post("/api/auth/forgotPassword", { email });
 
@@ -43,49 +23,12 @@ export default function ForgotPassword({ onBack, onEmailSubmitted }) {
 
       // ✅ Pass both email and token to App.jsx
       onEmailSubmitted(email, resetToken);
-=======
-      const forgotPromise = axios.post("/api/auth/forgotPassword", { email });
-
-      const response = await toast.promise(
-        forgotPromise,
-        {
-          loading: "Sending reset code...",
-          success: (res) =>
-            res.data?.message || "Check your email for the reset code.",
-          error: (err) =>
-            err?.response?.data?.message ||
-            "Something went wrong. Please try again.",
-        },
-        { duration: 3000 }
-      );
-
-      const { message, resetToken } = response.data || {};
-
-      // store for later steps
-      if (resetToken) localStorage.setItem("resetToken", resetToken);
-      localStorage.setItem("resetEmail", email);
-
-      setMessage(message || "Check your email for the reset code.");
-
-      // notify parent (App.jsx) if it's listening
-      onEmailSubmitted?.(email, resetToken);
-
-      // default navigation if parent doesn't handle it
-      if (!onEmailSubmitted) {
-        navigate("/code");
-      }
->>>>>>> major-changes
 
       console.log("✅ Reset token (testing only):", resetToken);
     } catch (error) {
       console.error("❌ Forgot password error:", error);
       setMessage(
-<<<<<<< HEAD
         error.response?.data?.message || "Something went wrong. Please try again."
-=======
-        error?.response?.data?.message ||
-        "Something went wrong. Please try again."
->>>>>>> major-changes
       );
     } finally {
       setLoading(false);
@@ -93,7 +36,6 @@ export default function ForgotPassword({ onBack, onEmailSubmitted }) {
   };
 
   return (
-<<<<<<< HEAD
     <form className="form" onSubmit={submit}>
       <div style={{ marginBottom: "10px" }}>
         <button type="button" className="link" onClick={onBack}>
@@ -135,81 +77,5 @@ export default function ForgotPassword({ onBack, onEmailSubmitted }) {
         We’ll email a 6-digit code to reset your password.
       </p>
     </form>
-=======
-    <div className="auth-page">
-      {/* Header (same as Login) */}
-      <header className="header">
-        <h1>BukSU CoT Thesis Realm</h1>
-        <p>Reset your account password</p>
-      </header>
-
-      {/* Card */}
-      <div className="container">
-        {/* Title strip */}
-        <div className="tabs">
-          <button className="tab active" type="button">
-            Forgot Password
-          </button>
-        </div>
-
-        {/* Form */}
-        <form className="form" onSubmit={submit}>
-          <div style={{ marginBottom: "10px" }}>
-            <button type="button" className="link" onClick={handleBack}>
-              ← Back to Login
-            </button>
-          </div>
-
-          <div>
-            <label>Enter your email</label>
-            <div className="input-box has-icon">
-              <span className="input-icon">
-                {/* mail icon */}
-                <svg
-                  viewBox="0 0 24 24"
-                  width="18"
-                  height="18"
-                  fill="currentColor"
-                >
-                  <path d="M1.5 7.5v9A1.5 1.5 0 0 0 3 18h18a1.5 1.5 0 0 0 1.5-1.5v-9L12 12 1.5 7.5z" />
-                  <path d="M22.5 6V5.5A1.5 1.5 0 0 0 21 4H3A1.5 1.5 0 0 0 1.5 5.5V6L12 10.5 22.5 6z" />
-                </svg>
-              </span>
-              <input
-                type="email"
-                placeholder="your.email@buksu.edu.ph"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          <button className="btn-primary" type="submit" disabled={loading}>
-            {loading ? "Sending..." : "Send Code"}
-          </button>
-
-          {message && (
-            <p className="text-center" style={{ marginTop: "10px" }}>
-              {message}
-            </p>
-          )}
-
-          <p className="text-center">
-            We’ll email a 6-digit code to reset your password.
-          </p>
-        </form>
-      </div>
-
-      {/* Back home link (optional, matches login) */}
-      <button
-        type="button"
-        className="link back-home"
-        onClick={() => navigate("/")}
-      >
-        ← Back to Home
-      </button>
-    </div>
->>>>>>> major-changes
   );
 }

@@ -5,7 +5,3 @@ export const requireRole = (...allowed) => (req, res, next) => {
   }
   next();
 };
-<<<<<<< HEAD
-=======
-
->>>>>>> major-changes

@@ -12,23 +12,12 @@
   "author": "Renzo Gabonada",
   "dependencies": {
     "@react-oauth/google": "^0.12.2",
-<<<<<<< HEAD
-=======
-    "@tanstack/react-query": "^5.90.7",
->>>>>>> major-changes
     "axios": "^1.12.2",
     "jwt-decode": "^4.0.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-google-recaptcha": "^3.1.0",
-<<<<<<< HEAD
     "react-router-dom": "^7.9.4"
-=======
-    "react-hot-toast": "^2.6.0",
-    "react-router-dom": "^7.9.4",
-    "recharts": "^3.4.1",
-    "zustand": "^5.0.8"
->>>>>>> major-changes
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
