@@ -1,7 +1,7 @@
 // src/Teacher/Thesis.jsx
 import { useEffect, useMemo, useState } from "react";
 import EditThesisModal from "./EditThesisModal.jsx";
-import Sidebar from "./Sidebar.jsx";
+import Sidebar from "/Sidebar.jsx";
 import "./teacher.css";
 import toast from "react-hot-toast";
 
