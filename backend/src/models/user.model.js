@@ -29,10 +29,34 @@ const userSchema = new Schema(
     },
     role: {
       type: String,
+<<<<<<< HEAD
       enum: ['student', 'teacher', 'admin'],
       default: 'student',
     },
     
+=======
+      enum: ['guest', 'student', 'teacher', 'admin'],
+      default: 'guest',
+    },
+
+    // 🔒 admin edit lock (for 2-phase locking in AdminUsers)
+    editLock: {
+      lockedBy: {
+        type: Schema.Types.ObjectId,
+        ref: 'user',
+        default: null,
+      },
+      lockedAt: {
+        type: Date,
+        default: null,
+      },
+      expiresAt: {
+        type: Date,
+        default: null,
+      },
+    },
+
+>>>>>>> major-changes
     // OAuth fields
     googleId: {
       type: String,
@@ -77,11 +101,39 @@ const userSchema = new Schema(
       trim: true,
       default: '',
     },
+<<<<<<< HEAD
+=======
+
+    bookmarks: [
+      {
+        project: {
+          type: Schema.Types.ObjectId,
+          ref: 'project',
+          required: true,
+        },
+        addedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+>>>>>>> major-changes
   },
   {
     timestamps: true,
   }
 );
 
+<<<<<<< HEAD
 const User = model('user', userSchema);
 export default User;
+=======
+// Prevent duplicate bookmarks per user
+userSchema.index(
+  { _id: 1, 'bookmarks.project': 1 },
+  { unique: true, sparse: true }
+);
+
+const User = model('user', userSchema);
+export default User;
+>>>>>>> major-changes

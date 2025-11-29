@@ -1,7 +1,59 @@
 import { useState } from "react";
+<<<<<<< HEAD
 import axios from "../api/axios.js";
 
 export default function SignUpForm({ onSwitch }) {
+=======
+import { useNavigate } from "react-router-dom";
+import axios from "../api/axios.js";
+import toast from "react-hot-toast";
+
+export default function SignUpPage() {
+  const navigate = useNavigate();
+
+  const handleSwitchToLogin = () => {
+    navigate("/login");
+  };
+
+  return (
+    <div className="auth-page">
+      {/* Header */}
+      <header className="header">
+        <h1>BukSU CoT Thesis Realm</h1>
+        <p>Create your academic research account</p>
+      </header>
+
+      {/* Card */}
+      <div className="container">
+        {/* Title strip */}
+        <div className="tabs">
+          <button className="tab active" type="button">
+            Sign Up
+          </button>
+        </div>
+
+        {/* Sign Up Form with logic */}
+        <SignUpForm onSwitch={handleSwitchToLogin} />
+      </div>
+
+      {/* Back Home */}
+      <button
+        type="button"
+        className="link back-home"
+        onClick={() => navigate("/")}
+      >
+        ← Back to Home
+      </button>
+    </div>
+  );
+}
+
+/* ===========================
+   SignUpForm with full logic
+   =========================== */
+/* eslint-disable react/prop-types */
+function SignUpForm({ onSwitch }) {
+>>>>>>> major-changes
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -16,18 +68,27 @@ export default function SignUpForm({ onSwitch }) {
     e.preventDefault();
 
     if (form.password !== form.confirm) {
+<<<<<<< HEAD
       alert("Passwords do not match");
+=======
+      toast.error("Passwords do not match");
+>>>>>>> major-changes
       return;
     }
 
     try {
+<<<<<<< HEAD
       // ✅ Send what backend expects
       const response = await axios.post("/api/auth/register", {
+=======
+      const registerPromise = axios.post("/api/auth/register", {
+>>>>>>> major-changes
         fullName: form.name, // backend expects fullName
         email: form.email,
         password: form.password,
       });
 
+<<<<<<< HEAD
       alert(response.data.message);
       console.log("✅ Success:", response.data);
 
@@ -35,6 +96,25 @@ export default function SignUpForm({ onSwitch }) {
     } catch (error) {
       console.error("❌ Registration failed:", error.response?.data || error.message);
       alert(error.response?.data?.message || "Failed to register. Try again later.");
+=======
+      await toast.promise(
+        registerPromise,
+        {
+          loading: "Creating your account...",
+          success: (res) =>
+            res.data?.message || "Registered successfully. Redirecting...",
+          error: (err) =>
+            err?.response?.data?.message ||
+            "Failed to register. Try again later.",
+        },
+        { duration: 3000 }
+      );
+
+      // after sign up, go to login page
+      onSwitch?.();
+    } catch (error) {
+      console.error("❌ Registration failed:", error?.response?.data || error);
+>>>>>>> major-changes
     }
   };
 
@@ -122,10 +202,18 @@ export default function SignUpForm({ onSwitch }) {
         </div>
       </div>
 
+<<<<<<< HEAD
+=======
+      {/* Submit */}
+>>>>>>> major-changes
       <button className="btn-primary" type="submit">
         Create Account
       </button>
 
+<<<<<<< HEAD
+=======
+      {/* Switch to Login */}
+>>>>>>> major-changes
       <p className="text-center">
         Already have an account?{" "}
         <button
