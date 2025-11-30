@@ -10,7 +10,9 @@ import studentRoutes from "./routes/student.routes.js";
 import teacherRoutes from "./routes/teacher.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import authRoutes from "./routes/auth.routes.js";
-import userRoutes from "./routes/user.routes.js";   // ✅ NEW
+import userRoutes from "./routes/user.routes.js";
+import backupRoutes from "./routes/backup.routes.js";
+// ✅ NEW
 
 import passport from "passport";
 import session from "express-session";
@@ -99,6 +101,7 @@ app.use(passport.session());
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // ===== Routes =====
+app.use("/api/admin", backupRoutes);
 app.use("/api/publicProjects", publicRoutes);
 app.use("/api/bookmarks", bookmarksRouter);
 app.use("/api/student", studentRoutes);

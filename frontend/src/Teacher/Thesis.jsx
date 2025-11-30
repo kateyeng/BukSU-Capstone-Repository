@@ -1,7 +1,7 @@
 // src/Teacher/Thesis.jsx
 import { useEffect, useMemo, useState } from "react";
 import EditThesisModal from "./EditThesisModal.jsx";
-import Sidebar from "/Sidebar.jsx";
+import Sidebar from "./Sidebar.jsx";
 import "./teacher.css";
 import toast from "react-hot-toast";
 
@@ -16,7 +16,7 @@ export default function TeacherThesisPage() {
   const [busyId, setBusyId] = useState("");
   const [previewItem, setPreviewItem] = useState(null);
 
-  // approve / reject confirmation modal
+  // approve / reject / delete confirmation modal
   const [confirmData, setConfirmData] = useState(null);
 
   function buildDownloadUrl(thesis) {
@@ -95,13 +95,39 @@ export default function TeacherThesisPage() {
       });
 
       toast.success(
-        `${next === "approved" ? "Approved" : "Rejected"
-        } — email notification queued.`
+        `${next === "approved" ? "Approved" : "Rejected"} — email notification queued.`
       );
     } catch (e) {
       console.error("[TEACHER][STATUS][ERROR]", e);
       toast.error(`Failed to set status to "${next}". Reverting.`);
       setItems((list) => list.map((i) => (i._id === id ? prev : i)));
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  /* ========== DELETE THESIS ========== */
+  async function deleteThesis(id) {
+    console.log("[TEACHER][DELETE][REQUEST]", { id });
+
+    const prevItems = items; // snapshot for revert
+    setBusyId(id);
+
+    // optimistic remove
+    setItems((list) => list.filter((i) => i._id !== id));
+
+    try {
+      const res = await fetch(`${API}/api/teacher/thesis/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      toast.success("Thesis deleted.");
+    } catch (e) {
+      console.error("[TEACHER][DELETE][ERROR]", e);
+      toast.error("Failed to delete thesis. Reverting.");
+      setItems(() => prevItems);
     } finally {
       setBusyId("");
     }
@@ -200,7 +226,7 @@ export default function TeacherThesisPage() {
     const ok = await lockThesisForEdit(thesis);
     if (ok) {
       // use the latest version from state (with editLock) if available
-      setEditItem((prev) => {
+      setEditItem(() => {
         const latest = items.find((i) => i._id === thesis._id);
         return latest || thesis;
       });
@@ -214,7 +240,7 @@ export default function TeacherThesisPage() {
     setEditItem(null);
   }
 
-  /* ========== APPROVE / REJECT CONFIRMS ========== */
+  /* ========== APPROVE / REJECT / DELETE CONFIRMS ========== */
   function onApprove(thesis) {
     setConfirmData({ mode: "approve", thesis, reason: "" });
   }
@@ -223,18 +249,24 @@ export default function TeacherThesisPage() {
     setConfirmData({ mode: "reject", thesis, reason: "" });
   }
 
+  function onDelete(thesis) {
+    setConfirmData({ mode: "delete", thesis, reason: "" });
+  }
+
   async function handleConfirm() {
     if (!confirmData) return;
     const { mode, thesis, reason } = confirmData;
 
     if (mode === "approve") {
       await updateStatus(thesis._id, "approved");
-    } else {
+    } else if (mode === "reject") {
       await updateStatus(
         thesis._id,
         "rejected",
         reason ? { reason } : {}
       );
+    } else if (mode === "delete") {
+      await deleteThesis(thesis._id);
     }
 
     setConfirmData(null);
@@ -262,14 +294,14 @@ export default function TeacherThesisPage() {
 
   /* ========== RENDER ========== */
   return (
-    <div className="admin-shell">
+    <div className="admin-shell" style={{ background: "#ffffff" }}>
       <Sidebar />
-      <main className="admin-main">
+      <main className="admin-main" style={{ background: "#ffffff" }}>
         <div className="page-head">
           <div>
             <h1>Thesis</h1>
             <div className="sub">
-              Approve, reject, edit, or view submissions
+              Approve, reject, edit, delete, or view submissions
             </div>
           </div>
         </div>
@@ -376,9 +408,7 @@ export default function TeacherThesisPage() {
                           onClick={() => {
                             const url = buildDownloadUrl(t);
                             if (!url) {
-                              toast.error(
-                                "No PDF available for this thesis."
-                              );
+                              toast.error("No PDF available for this thesis.");
                               return;
                             }
                             window.open(
@@ -392,6 +422,17 @@ export default function TeacherThesisPage() {
                           title="View thesis PDF"
                         >
                           📄
+                        </button>
+
+                        {/* Delete 🗑 */}
+                        <button
+                          className="btn icon-box"
+                          style={{ background: "#b91c1c", color: "#fff" }}
+                          onClick={() => onDelete(t)}
+                          disabled={busyId === t._id}
+                          title="Delete thesis"
+                        >
+                          🗑
                         </button>
                       </>
                     )}
@@ -481,12 +522,9 @@ export default function TeacherThesisPage() {
           </div>
         )}
 
-        {/* Confirm approve / reject modal */}
+        {/* Confirm approve / reject / delete modal (white background) */}
         {confirmData && (
-          <div
-            className="modal-backdrop"
-            onClick={handleCancelConfirm}
-          >
+          <div className="modal-backdrop" onClick={handleCancelConfirm}>
             <div
               className="modal"
               onClick={(e) => e.stopPropagation()}
@@ -496,7 +534,9 @@ export default function TeacherThesisPage() {
                 <strong>
                   {confirmData.mode === "approve"
                     ? "Approve Thesis"
-                    : "Reject Thesis"}
+                    : confirmData.mode === "reject"
+                      ? "Reject Thesis"
+                      : "Delete Thesis"}
                 </strong>
                 <button className="btn" onClick={handleCancelConfirm}>
                   Close
@@ -507,9 +547,24 @@ export default function TeacherThesisPage() {
                 <p style={{ marginBottom: 12, fontSize: 14 }}>
                   {confirmData.mode === "approve"
                     ? `Are you sure you want to approve `
-                    : `Are you sure you want to reject `}
+                    : confirmData.mode === "reject"
+                      ? `Are you sure you want to reject `
+                      : `Are you sure you want to delete `}
                   <strong>"{confirmData.thesis.title}"</strong>?
                 </p>
+
+                {confirmData.mode === "delete" && (
+                  <p
+                    style={{
+                      marginTop: -4,
+                      marginBottom: 12,
+                      fontSize: 12,
+                      color: "#b91c1c",
+                    }}
+                  >
+                    This action cannot be undone.
+                  </p>
+                )}
 
                 {confirmData.mode === "reject" && (
                   <div className="row">
@@ -535,11 +590,12 @@ export default function TeacherThesisPage() {
                 <button className="btn" onClick={handleCancelConfirm}>
                   Cancel
                 </button>
-                <button
-                  className="btn primary"
-                  onClick={handleConfirm}
-                >
-                  {confirmData.mode === "approve" ? "Approve" : "Reject"}
+                <button className="btn primary" onClick={handleConfirm}>
+                  {confirmData.mode === "approve"
+                    ? "Approve"
+                    : confirmData.mode === "reject"
+                      ? "Reject"
+                      : "Delete"}
                 </button>
               </footer>
             </div>

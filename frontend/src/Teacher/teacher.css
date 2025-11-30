@@ -425,3 +425,234 @@
     border-collapse: collapse;
   }
 }
+
+/* ===== Layout ===== */
+.teacher-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f3f4f6;
+}
+
+.teacher-main {
+  flex: 1;
+  padding: 24px 32px 40px;
+  overflow-y: auto;
+}
+
+/* ===== Profile card ===== */
+.teacher-profile-wrapper {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.teacher-profile-card {
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.07);
+  padding: 20px 24px 22px;
+}
+
+.teacher-profile-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.teacher-profile-card__header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  color: #111827;
+}
+
+.teacher-profile-card__header p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.teacher-profile__role-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4f46e5;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.teacher-profile-card__body {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 16px;
+}
+
+/* Top part: avatar + info */
+.teacher-profile__top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.teacher-profile__avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  object-fit: cover;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.2);
+}
+
+.teacher-profile__avatar--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #4f46e5, #6366f1, #a855f7);
+  color: #ffffff;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+/* Text info */
+.teacher-profile__info {
+  display: flex;
+  flex-direction: column;
+}
+
+.teacher-profile__name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.teacher-profile__email {
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.teacher-profile__joined {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 6px;
+}
+
+.teacher-profile__error {
+  font-size: 12px;
+  color: #b91c1c;
+  margin-top: 4px;
+}
+
+.teacher-profile__actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.teacher-profile__edit-btn {
+  border-radius: 999px;
+  border: none;
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  background: #111827;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+/* ===== Modal ===== */
+.teacher-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.teacher-modal {
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+}
+
+.teacher-modal__header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.teacher-modal__close {
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.teacher-modal__body {
+  padding: 14px 16px 8px;
+}
+
+.teacher-modal__field {
+  margin-bottom: 10px;
+}
+
+.teacher-modal__field label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.teacher-modal__field input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-size: 14px;
+  background: #ffffff;
+}
+
+.teacher-modal__hint {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-bottom: 10px;
+}
+
+.teacher-modal__footer {
+  padding: 10px 16px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.teacher-modal__btn {
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.teacher-modal__btn--ghost {
+  background: #ffffff;
+  border-color: #d1d5db;
+}
+
+.teacher-modal__btn--primary {
+  background: #111827;
+  color: #ffffff;
+}

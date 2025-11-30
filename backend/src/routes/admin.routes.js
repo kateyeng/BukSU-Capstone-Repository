@@ -1,3 +1,4 @@
+// backend/src/routes/admin.routes.js
 import express from "express";
 import { protect, requireRole } from "../middleware/auth.js";
 import { requirePermission } from "../middleware/acl.js";
@@ -19,6 +20,15 @@ import {
 } from "../controllers/adminPermissions.controller.js";
 
 const router = express.Router();
+
+/**
+ * Base path: app.use("/api/admin", adminRouter);
+ *
+ * NOTE:
+ *  - Delete of thesis from admin UI goes through /api/teacher/thesis/:id
+ *    (teacher router) so admins reuse the same logic & permissions.
+ *  - We still provide GET /api/admin/thesis for the admin Capstone list.
+ */
 
 // All admin routes require admin auth
 router.use(protect, requireRole("admin"));
@@ -46,10 +56,8 @@ router.put("/permissions", updateAdminPermissions);
 
 /* ========== THESIS / CAPSTONE LIST (ADMIN) ========== */
 /**
- * GET /api/admin/thesis?status=pending&limit=500
+ * GET /api/admin/thesis?status=pending|approved|rejected|all&limit=500
  * Admin view of all thesis/capstone projects.
- * - optional ?status=pending|approved|rejected
- * - optional ?limit=number (default 500, max 1000)
  */
 router.get(
   "/thesis",

@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "./teacher.css";
 // src/teacher/Activity.jsx
-import Sidebar from "/Sidebar.jsx";
+import Sidebar from "./Sidebar.jsx";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 

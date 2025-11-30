@@ -22,7 +22,8 @@ export default function AdminLayout({ currentUser, onLogout }) {
                     <NavLink
                         to="/admin/dashboard"
                         className={({ isActive }) =>
-                            "admin-nav-link" + (isActive ? " admin-nav-link-active" : "")
+                            "admin-nav-link" +
+                            (isActive ? " admin-nav-link-active" : "")
                         }
                     >
                         Dashboard
@@ -31,7 +32,8 @@ export default function AdminLayout({ currentUser, onLogout }) {
                     <NavLink
                         to="/admin/users"
                         className={({ isActive }) =>
-                            "admin-nav-link" + (isActive ? " admin-nav-link-active" : "")
+                            "admin-nav-link" +
+                            (isActive ? " admin-nav-link-active" : "")
                         }
                     >
                         Users
@@ -40,20 +42,32 @@ export default function AdminLayout({ currentUser, onLogout }) {
                     <NavLink
                         to="/admin/permissions"
                         className={({ isActive }) =>
-                            "admin-nav-link" + (isActive ? " admin-nav-link-active" : "")
+                            "admin-nav-link" +
+                            (isActive ? " admin-nav-link-active" : "")
                         }
                     >
                         Role Permissions
                     </NavLink>
 
-                    {/* ✅ NEW: Capstone link */}
                     <NavLink
                         to="/admin/capstone"
                         className={({ isActive }) =>
-                            "admin-nav-link" + (isActive ? " admin-nav-link-active" : "")
+                            "admin-nav-link" +
+                            (isActive ? " admin-nav-link-active" : "")
                         }
                     >
                         Capstone
+                    </NavLink>
+
+                    {/* 🆕 Backup & Restore */}
+                    <NavLink
+                        to="/admin/backup"
+                        className={({ isActive }) =>
+                            "admin-nav-link" +
+                            (isActive ? " admin-nav-link-active" : "")
+                        }
+                    >
+                        Backup &amp; Restore
                     </NavLink>
                 </nav>
 
@@ -69,7 +83,9 @@ export default function AdminLayout({ currentUser, onLogout }) {
                     {currentUser && (
                         <div className="admin-user-info">
                             <span>{currentUser.fullName}</span>
-                            <span className="admin-role-pill">{currentUser.role}</span>
+                            <span className="admin-role-pill">
+                                {currentUser.role}
+                            </span>
                         </div>
                     )}
                 </header>

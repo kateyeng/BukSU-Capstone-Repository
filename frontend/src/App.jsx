@@ -39,13 +39,15 @@ import StudentBookmarks from "./Student/Bookmarks.jsx";
 import TeacherDashboard from "./Teacher/Dashboard.jsx";
 import TeacherThesis from "./Teacher/Thesis.jsx";
 import TeacherActivity from "./Teacher/Activity.jsx";
+import TeacherProfile from "./Teacher/Profile.jsx"; // 👈 NEW
 
 /* ===== Admin (login required) ===== */
 import AdminLayout from "./Admin/adminLayout.jsx";
 import AdminDashboard from "./Admin/adminDashboard.jsx";
 import AdminUsers from "./Admin/adminUsers.jsx";
 import RolePermissions from "./Admin/RolePermissions.jsx";
-import Capstone from "./Admin/Capstone.jsx"; // ✅ NEW
+import Capstone from "./Admin/Capstone.jsx";
+import Backup from "./Admin/Backup.jsx";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -53,7 +55,7 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 function UseOauthNotice() {
   const location = useLocation();
   const navigate = useNavigate();
-  const handledSearchRef = useRef(""); // 👈 remember last handled search
+  const handledSearchRef = useRef("");
 
   useEffect(() => {
     const search = location.search || "";
@@ -63,10 +65,8 @@ function UseOauthNotice() {
     const notice = p.get("notice");
     const isNew = p.get("isNew");
 
-    // only handle google callbacks
     if (source !== "google") return;
 
-    // avoid double-run in StrictMode / same URL
     if (handledSearchRef.current === search) return;
     handledSearchRef.current = search;
 
@@ -86,7 +86,6 @@ function UseOauthNotice() {
       console.log("[OAuth] Google login success role:", role);
     }
 
-    // Clean query params in URL
     p.delete("source");
     p.delete("role");
     p.delete("notice");
@@ -102,7 +101,6 @@ function UseOauthNotice() {
 
 /* =================== HELPERS =================== */
 
-// SUPER-forgiving role normalizer
 const normRole = (v) => {
   const raw = String(v || "").trim().toLowerCase();
   const compact = raw.replace(/\s+/g, "");
@@ -114,7 +112,6 @@ const normRole = (v) => {
   return "guest";
 };
 
-// 🔐 Guard for private routes
 function RequireRole({ user, roles, children }) {
   if (!user) return <Navigate to="/login" replace />;
   if (!roles.includes(user.role)) return <Navigate to="/" replace />;
@@ -275,6 +272,7 @@ function TeacherHome({ onLogout }) {
         if (dest === "dashboard") nav("/teacher");
         else if (dest === "thesis") nav("/teacher/thesis");
         else if (dest === "activity") nav("/teacher/activity");
+        else if (dest === "profile") nav("/teacher/profile"); // 👈 NEW
       }}
     />
   );
@@ -286,6 +284,12 @@ function TeacherThesisPage({ onLogout }) {
 
 function TeacherActivityPage({ onLogout }) {
   return <TeacherActivity onLogout={onLogout} />;
+}
+
+function TeacherProfilePage() {
+  // TeacherProfile has its own Sidebar + logout,
+  // so we don't need onLogout here.
+  return <TeacherProfile />;
 }
 
 /* ---------- Auth wrappers ---------- */
@@ -352,13 +356,12 @@ function ResetPage({ email }) {
 
 /* =================== APP =================== */
 export default function App() {
-  const [user, setUser] = useState(null); // null = guest
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [emailForReset, setEmailForReset] = useState("");
 
   const nav = useNavigate();
 
-  // Check existing session
   useEffect(() => {
     let alive = true;
 
@@ -375,7 +378,7 @@ export default function App() {
         if (err?.response?.status !== 401) {
           console.error("auth/me failed:", err);
         }
-        if (alive) setUser(null); // guest
+        if (alive) setUser(null);
       } finally {
         if (alive) setLoading(false);
       }
@@ -415,7 +418,9 @@ export default function App() {
 
   if (loading) {
     return (
-      <div style={{ display: "grid", placeItems: "center", minHeight: "100vh" }}>
+      <div
+        style={{ display: "grid", placeItems: "center", minHeight: "100vh" }}
+      >
         <div className="spinner" />
       </div>
     );
@@ -430,7 +435,6 @@ export default function App() {
         <Route path="/" element={<PublicHomePage />} />
         <Route path="/dashboard" element={<PublicHomePage />} />
 
-        {/* if a student hits /browse, send them to /student/browse */}
         <Route
           path="/browse"
           element={
@@ -442,7 +446,6 @@ export default function App() {
           }
         />
 
-        {/* /details/:id → student view if logged-in student, else public view */}
         <Route
           path="/details/:id"
           element={
@@ -473,7 +476,7 @@ export default function App() {
         <Route path="/code" element={<CodePage email={emailForReset} />} />
         <Route path="/reset" element={<ResetPage email={emailForReset} />} />
 
-        {/* ===== STUDENT (requires role=student) ===== */}
+        {/* ===== STUDENT ===== */}
         <Route
           path="/student"
           element={
@@ -539,7 +542,7 @@ export default function App() {
           }
         />
 
-        {/* ===== TEACHER (requires role=teacher) ===== */}
+        {/* ===== TEACHER ===== */}
         <Route
           path="/teacher"
           element={
@@ -564,8 +567,16 @@ export default function App() {
             </RequireRole>
           }
         />
+        <Route
+          path="/teacher/profile"
+          element={
+            <RequireRole user={user} roles={["teacher"]}>
+              <TeacherProfilePage />
+            </RequireRole>
+          }
+        />
 
-        {/* ===== ADMIN (requires role=admin) ===== */}
+        {/* ===== ADMIN ===== */}
         <Route
           path="/admin"
           element={
@@ -578,10 +589,11 @@ export default function App() {
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="users" element={<AdminUsers currentUser={user} />} />
           <Route path="permissions" element={<RolePermissions />} />
-          <Route path="capstone" element={<Capstone />} /> {/* ✅ NEW */}
+          <Route path="capstone" element={<Capstone />} />
+          <Route path="backup" element={<Backup />} />
         </Route>
 
-        {/* Fallback → public home */}
+        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

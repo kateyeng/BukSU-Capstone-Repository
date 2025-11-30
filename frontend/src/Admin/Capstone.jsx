@@ -2,7 +2,77 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api/axios.js";
 import toast from "react-hot-toast";
-import EditThesisModal from "../Teacher/EditThesisModal.jsx"; // <-- change path/name if needed
+import EditThesisModal from "../Teacher/EditThesisModal.jsx"; // adjust path if needed
+
+// toast-based delete confirmation (white background)
+function confirmDeleteToast(message) {
+    return new Promise((resolve) => {
+        toast.custom(
+            (t) => (
+                <div
+                    style={{
+                        background: "#ffffff",
+                        color: "#111827",
+                        padding: "12px 14px",
+                        borderRadius: 12,
+                        boxShadow: "0 10px 30px rgba(15,23,42,0.18)",
+                        width: "100%",
+                        maxWidth: 360,
+                        fontSize: 13,
+                        border: "1px solid #e5e7eb",
+                    }}
+                >
+                    <div style={{ marginBottom: 8 }}>{message}</div>
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent: "flex-end",
+                            gap: 8,
+                            marginTop: 4,
+                        }}
+                    >
+                        <button
+                            onClick={() => {
+                                toast.dismiss(t.id);
+                                resolve(false);
+                            }}
+                            style={{
+                                borderRadius: 999,
+                                border: "1px solid #d1d5db",
+                                padding: "4px 10px",
+                                fontSize: 12,
+                                background: "#ffffff",
+                                color: "#374151",
+                                cursor: "pointer",
+                            }}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={() => {
+                                toast.dismiss(t.id);
+                                resolve(true);
+                            }}
+                            style={{
+                                borderRadius: 999,
+                                border: "none",
+                                padding: "4px 12px",
+                                fontSize: 12,
+                                fontWeight: 500,
+                                background: "#b91c1c",
+                                color: "#ffffff",
+                                cursor: "pointer",
+                            }}
+                        >
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            ),
+            { duration: 100000 }
+        );
+    });
+}
 
 export default function Capstone({ currentUser = null }) {
     const [items, setItems] = useState([]);
@@ -55,7 +125,7 @@ export default function Capstone({ currentUser = null }) {
             setLoading(true);
             setErr("");
 
-            const res = await api.get("/api/admin/thesis", {
+            const res = await api.get("/api/admin/thesis?limit=500", {
                 withCredentials: true,
             });
 
@@ -179,15 +249,80 @@ export default function Capstone({ currentUser = null }) {
 
     /* ===== ACTION HANDLERS ===== */
 
-    const handleApprove = (project) => {
-        console.log("approve", project._id);
-        // TODO: call API to approve
-    };
+    async function handleApprove(project) {
+        try {
+            setBusyId(project._id);
 
-    const handleReject = (project) => {
-        console.log("reject", project._id);
-        // TODO: call API to reject
-    };
+            // optimistic status
+            setItems((list) =>
+                list.map((p) =>
+                    p._id === project._id ? { ...p, status: "approved" } : p
+                )
+            );
+
+            const res = await api.patch(
+                `/api/teacher/thesis/${project._id}/status`,
+                { status: "approved" },
+                { withCredentials: true }
+            );
+
+            const updated = res.data?.thesis || res.data;
+            if (updated?._id) {
+                setItems((list) =>
+                    list.map((p) => (p._id === updated._id ? updated : p))
+                );
+            }
+
+            toast.success("Approved — email notification queued.");
+        } catch (e) {
+            console.error("[ADMIN][APPROVE][ERROR]", e);
+            toast.error("Failed to approve thesis.");
+            // reload to restore correct data
+            loadThesis();
+        } finally {
+            setBusyId(null);
+        }
+    }
+
+    async function handleReject(project) {
+        const reason = window.prompt(
+            "Optional rejection reason (shown in email):",
+            ""
+        );
+        try {
+            setBusyId(project._id);
+
+            // optimistic status
+            setItems((list) =>
+                list.map((p) =>
+                    p._id === project._id ? { ...p, status: "rejected" } : p
+                )
+            );
+
+            const body = reason ? { status: "rejected", reason } : { status: "rejected" };
+
+            const res = await api.patch(
+                `/api/teacher/thesis/${project._id}/status`,
+                body,
+                { withCredentials: true }
+            );
+
+            const updated = res.data?.thesis || res.data;
+            if (updated?._id) {
+                setItems((list) =>
+                    list.map((p) => (p._id === updated._id ? updated : p))
+                );
+            }
+
+            toast.success("Rejected — email notification queued.");
+        } catch (e) {
+            console.error("[ADMIN][REJECT][ERROR]", e);
+            toast.error("Failed to reject thesis.");
+            loadThesis();
+        } finally {
+            setBusyId(null);
+        }
+    }
 
     const handleEdit = async (project) => {
         const ok = await lockForEdit(project);
@@ -207,8 +342,32 @@ export default function Capstone({ currentUser = null }) {
         window.open(url, "_blank", "noopener,noreferrer");
     };
 
+    const handleDelete = async (project) => {
+        const ok = await confirmDeleteToast(
+            `Are you sure you want to delete "${project.title}"? This cannot be undone.`
+        );
+        if (!ok) return;
+
+        try {
+            setBusyId(project._id);
+
+            // IMPORTANT: delete via teacher route, which exists and allows admins
+            await api.delete(`/api/teacher/thesis/${project._id}`, {
+                withCredentials: true,
+            });
+
+            setItems((prev) => prev.filter((p) => p._id !== project._id));
+            toast.success("Thesis deleted.");
+        } catch (e) {
+            console.error("[ADMIN][DELETE][ERROR]", e);
+            toast.error("Failed to delete thesis.");
+        } finally {
+            setBusyId(null);
+        }
+    };
+
     return (
-        <div className="capstone-page">
+        <div className="capstone-page" style={{ background: "#ffffff" }}>
             {/* Top bar */}
             <div className="capstone-header">
                 <div>
@@ -364,14 +523,18 @@ export default function Capstone({ currentUser = null }) {
                                                             onClick={() => handleViewPdf(p)}
                                                             disabled={
                                                                 busyId === p._id ||
-                                                                !(
-                                                                    p.fileUrl ||
-                                                                    p.pdfUrl ||
-                                                                    p.documentUrl
-                                                                )
+                                                                !(p.fileUrl || p.pdfUrl || p.documentUrl)
                                                             }
                                                         >
                                                             📄
+                                                        </button>
+                                                        <button
+                                                            className="capstone-action-btn"
+                                                            title="Delete"
+                                                            onClick={() => handleDelete(p)}
+                                                            disabled={busyId === p._id}
+                                                        >
+                                                            🗑
                                                         </button>
                                                     </div>
                                                 </td>
@@ -426,9 +589,7 @@ export default function Capstone({ currentUser = null }) {
                                 <button
                                     className="capstone-page-btn"
                                     disabled={safePage >= totalPages}
-                                    onClick={() =>
-                                        setPage((p) => Math.min(totalPages, p + 1))
-                                    }
+                                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                                 >
                                     ›
                                 </button>

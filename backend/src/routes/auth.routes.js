@@ -17,6 +17,7 @@ import {
 
 import { googleCallBack } from "../controllers/auth/googleController.js";
 import { protect } from "../middleware/auth.js";
+import User from "../models/user.model.js";
 
 dotenv.config();
 
@@ -46,6 +47,57 @@ router.get("/me", protect, (req, res) => {
   } = src;
 
   return res.json({ user: safeUser });
+});
+
+/* =========================================================
+   PATCH /api/auth/me
+   - Update current user's basic profile (name / fullName)
+   - Used by Student and Teacher Profile pages
+========================================================= */
+
+router.patch("/me", protect, async (req, res, next) => {
+  try {
+    const { name } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: "Name is required." });
+    }
+
+    const cleanedName = name.trim();
+
+    // 👇 update BOTH `name` and `fullName`
+    const updated = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        name: cleanedName,
+        fullName: cleanedName,
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    const src =
+      typeof updated.toObject === "function"
+        ? updated.toObject()
+        : updated;
+
+    const {
+      password,
+      resetPasswordToken,
+      resetPasswordExpires,
+      resetCode,
+      emailVerificationToken,
+      ...safeUser
+    } = src;
+
+    return res.json({ user: safeUser });
+  } catch (err) {
+    console.error("[AUTH][PATCH /me] ERROR", err);
+    next(err);
+  }
 });
 
 /* =========================================================

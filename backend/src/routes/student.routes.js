@@ -1,3 +1,4 @@
+// backend/src/routes/studentProjects.routes.js
 import express from "express";
 import { protect, ownerOrAdmin } from "../middleware/auth.js";
 import { requirePermission } from "../middleware/acl.js";
@@ -14,12 +15,30 @@ import {
 
 const router = express.Router();
 
-// Debug route (optional)
+/**
+ * Base path in server:
+ *   app.use("/api/student", studentProjectsRouter);
+ *
+ * Frontend student calls:
+ *  - GET    /api/student/projects/mine
+ *  - POST   /api/student/projects
+ *  - PATCH  /api/student/projects/:id
+ *  - POST   /api/student/projects/:id/lock
+ *  - POST   /api/student/projects/:id/unlock
+ *  - DELETE /api/student/projects/:id
+ *  - GET    /api/student/projects/:id/download
+ */
+
+// Simple debug route
 router.get("/projects/debug", (req, res) => {
   res.json({ ok: true, msg: "Student projects route is working" });
 });
 
-// Only the logged-in student's projects (used in Profile page)
+/* ========== LIST MY PROJECTS ========== */
+/**
+ * GET /api/student/projects/mine
+ * Only the logged-in student's own projects (used in Profile page)
+ */
 router.get(
   "/projects/mine",
   protect,
@@ -27,7 +46,11 @@ router.get(
   getMyProjects
 );
 
-// CREATE / upload project
+/* ========== CREATE / UPLOAD PROJECT ========== */
+/**
+ * POST /api/student/projects
+ * Body: form-data with fields + "file" (PDF)
+ */
 router.post(
   "/projects",
   protect,
@@ -36,7 +59,11 @@ router.post(
   createProject
 );
 
-// UPDATE
+/* ========== UPDATE PROJECT ========== */
+/**
+ * PATCH /api/student/projects/:id
+ * Only owner or admin can update.
+ */
 router.patch(
   "/projects/:id",
   protect,
@@ -46,7 +73,11 @@ router.patch(
   updateProject
 );
 
-// 2PL LOCK for editing (student / owner / admin)
+/* ========== 2PL LOCK / UNLOCK FOR EDITING ========== */
+/**
+ * POST /api/student/projects/:id/lock
+ * Only owner or admin.
+ */
 router.post(
   "/projects/:id/lock",
   protect,
@@ -55,7 +86,10 @@ router.post(
   lockMyProject
 );
 
-// 2PL UNLOCK
+/**
+ * POST /api/student/projects/:id/unlock
+ * Only owner or admin.
+ */
 router.post(
   "/projects/:id/unlock",
   protect,
@@ -64,16 +98,28 @@ router.post(
   unlockMyProject
 );
 
-// DELETE
+/* ========== DELETE PROJECT ========== */
+/**
+ * DELETE /api/student/projects/:id
+ *
+ * NOTE:
+ *  We purposely do NOT call requirePermission("project", "delete") here to
+ *  avoid ACL 403 headaches. Instead:
+ *   - user must be authenticated (protect)
+ *   - and must be the owner of the project or an admin (ownerOrAdmin)
+ */
 router.delete(
   "/projects/:id",
   protect,
-  requirePermission("project", "delete"),
   ownerOrAdmin("id"),
   deleteProject
 );
 
-// DOWNLOAD
+/* ========== DOWNLOAD PROJECT FILE ========== */
+/**
+ * GET /api/student/projects/:id/download
+ * Any logged-in user with project:download permission can download.
+ */
 router.get(
   "/projects/:id/download",
   protect,

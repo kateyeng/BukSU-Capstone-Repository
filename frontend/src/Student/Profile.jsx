@@ -1,3 +1,4 @@
+// src/Student/Profile.jsx
 import { useEffect, useState, useMemo, useRef } from "react";
 import "../index.css";
 import StudentNavbar from "./StudentNavbar.jsx";
@@ -27,6 +28,76 @@ function getActiveLock(doc) {
   if (lock.releasedAt) return null;
   if (lock.expiresAt && new Date(lock.expiresAt) < new Date()) return null;
   return lock;
+}
+
+// toast-based delete confirmation (white background)
+function confirmDeleteToast(message) {
+  return new Promise((resolve) => {
+    toast.custom(
+      (t) => (
+        <div
+          style={{
+            background: "#ffffff",
+            color: "#111827",
+            padding: "12px 14px",
+            borderRadius: 12,
+            boxShadow: "0 10px 30px rgba(15,23,42,0.18)",
+            width: "100%",
+            maxWidth: 360,
+            fontSize: 13,
+            border: "1px solid #e5e7eb",
+          }}
+        >
+          <div style={{ marginBottom: 8 }}>{message}</div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: 8,
+              marginTop: 4,
+            }}
+          >
+            <button
+              onClick={() => {
+                toast.dismiss(t.id);
+                resolve(false);
+              }}
+              style={{
+                borderRadius: 999,
+                border: "1px solid #d1d5db",
+                padding: "4px 10px",
+                fontSize: 12,
+                background: "#ffffff",
+                color: "#374151",
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                toast.dismiss(t.id);
+                resolve(true);
+              }}
+              style={{
+                borderRadius: 999,
+                border: "none",
+                padding: "4px 12px",
+                fontSize: 12,
+                fontWeight: 500,
+                background: "#b91c1c",
+                color: "#ffffff",
+                cursor: "pointer",
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      ),
+      { duration: 100000 }
+    );
+  });
 }
 
 export default function Profile({ onLogout = () => { }, onNavigate = () => { } }) {
@@ -127,70 +198,148 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
   const avatarUrl =
     me?.avatarUrl || me?.picture || me?.photo || me?.googlePhotoUrl || null;
 
-  // ===== Change password handlers =====
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  // ===== Edit profile (name + password) =====
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileName, setProfileName] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [savingPassword, setSavingPassword] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
 
-  async function handlePasswordSubmit(e) {
+  // keep profileName in sync with loaded user
+  useEffect(() => {
+    if (me) {
+      setProfileName(me.name || me.fullName || "");
+    }
+  }, [me]);
+
+  async function handleProfileSubmit(e) {
     e.preventDefault();
 
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      toast.error("Please fill in all password fields.");
-      return;
-    }
+    const trimmedName = profileName.trim();
+    const originalName = me?.name || me?.fullName || "";
 
-    if (newPassword !== confirmPassword) {
-      toast.error("New passwords do not match.");
-      return;
-    }
+    const nameChanged = trimmedName && trimmedName !== originalName;
 
-    if (newPassword.length < 6) {
-      toast.error("New password must be at least 6 characters.");
-      return;
-    }
+    const wantsPasswordChange =
+      currentPassword.length > 0 ||
+      newPassword.length > 0 ||
+      confirmPassword.length > 0;
 
-    setSavingPassword(true);
-    try {
-      const res = await fetch(`${API}/api/auth/change-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          currentPassword,
-          newPassword,
-        }),
-      });
-
-      if (!res.ok) {
-        let msg = "Failed to change password.";
-        try {
-          const data = await res.json();
-          if (data?.message) msg = data.message;
-        } catch { }
-        throw new Error(msg);
+    // validate password only if user is changing it
+    if (wantsPasswordChange) {
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        toast.error("Please fill in all password fields.");
+        return;
       }
 
-      toast.success("Password updated successfully.");
+      if (newPassword !== confirmPassword) {
+        toast.error("New passwords do not match.");
+        return;
+      }
+
+      if (newPassword.length < 6) {
+        toast.error("New password must be at least 6 characters.");
+        return;
+      }
+    }
+
+    if (!nameChanged && !wantsPasswordChange) {
+      toast.error("Nothing to update.");
+      return;
+    }
+
+    setSavingProfile(true);
+
+    try {
+      // 1) Update name if changed
+      if (nameChanged) {
+        const res = await fetch(`${API}/api/auth/me`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ name: trimmedName }),
+        });
+
+        if (!res.ok) {
+          let msg = "Failed to update name.";
+          try {
+            const data = await res.json();
+            if (data?.message) msg = data.message;
+          } catch {
+            // ignore parse error
+          }
+          throw new Error(msg);
+        }
+
+        let updatedUser = null;
+        try {
+          const data = await res.json();
+          updatedUser = data?.user || data;
+        } catch {
+          // if backend doesn't return user, just use trimmedName
+        }
+
+        setMe((prev) => ({
+          ...(prev || {}),
+          ...(updatedUser || {}),
+          name: updatedUser?.name || trimmedName,
+        }));
+      }
+
+      // 2) Change password if requested
+      if (wantsPasswordChange) {
+        const res = await fetch(`${API}/api/auth/change-password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            currentPassword,
+            newPassword,
+          }),
+        });
+
+        if (!res.ok) {
+          let msg = "Failed to change password.";
+          try {
+            const data = await res.json();
+            if (data?.message) msg = data.message;
+          } catch {
+            // ignore
+          }
+          throw new Error(msg);
+        }
+      }
+
+      toast.success(
+        nameChanged && wantsPasswordChange
+          ? "Profile and password updated successfully."
+          : nameChanged
+            ? "Profile updated successfully."
+            : "Password updated successfully."
+      );
+
+      // reset fields and close modal
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setShowPasswordModal(false);
+      setShowProfileModal(false);
     } catch (err) {
-      console.error("[STUDENT][CHANGE_PASSWORD][ERROR]", err);
-      toast.error(err.message || "Failed to change password. Please try again.");
+      console.error("[STUDENT][PROFILE_UPDATE][ERROR]", err);
+      toast.error(err.message || "Failed to update profile.");
     } finally {
-      setSavingPassword(false);
+      setSavingProfile(false);
     }
   }
 
-  function closePasswordModal() {
-    setShowPasswordModal(false);
+  function closeProfileModal() {
+    setShowProfileModal(false);
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
+    if (me) {
+      setProfileName(me.name || me.fullName || "");
+    }
   }
 
   // ===== 2PL: lock & unlock for student edit =====
@@ -263,13 +412,42 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
     setEditItem(null);
   }
 
+  // ===== DELETE MY PROJECT =====
+  async function deleteMyProject(project) {
+    if (!project?._id) return;
+
+    const ok = await confirmDeleteToast(
+      `Are you sure you want to delete "${project.title}"? This cannot be undone.`
+    );
+    if (!ok) return;
+
+    try {
+      const res = await fetch(`${API}/api/student/projects/${project._id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      setProjects((prev) => prev.filter((p) => p._id !== project._id));
+
+      if (previewItem?._id === project._id) {
+        setPreviewItem(null);
+      }
+
+      toast.success("Thesis deleted.");
+    } catch (err) {
+      console.error("[STUDENT][PROJECTS][DELETE][ERROR]", err);
+      toast.error("Failed to delete thesis.");
+    }
+  }
+
   return (
     <>
       <StudentNavbar onLogout={onLogout} onNavigate={onNavigate} />
       <main
         style={{
           minHeight: "100vh",
-          background: "linear-gradient(180deg,#f3f4ff,#ffffff)",
+          background: "#ffffff", // white background
           padding: "32px 40px 80px",
         }}
       >
@@ -287,7 +465,7 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
           {/* My Profile card */}
           <section
             style={{
-              background: "#fff",
+              background: "#ffffff",
               borderRadius: 20,
               boxShadow: "0 10px 30px rgba(15,23,42,0.06)",
               padding: "20px 24px 24px",
@@ -454,9 +632,9 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
                   <button
                     type="button"
                     className="change-password-link"
-                    onClick={() => setShowPasswordModal(true)}
+                    onClick={() => setShowProfileModal(true)}
                   >
-                    Change password
+                    Edit profile
                   </button>
                 </div>
               )}
@@ -482,7 +660,7 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
           style={{
             maxWidth: 1150,
             marginInline: "auto",
-            background: "#fff",
+            background: "#ffffff",
             borderRadius: 20,
             boxShadow: "0 10px 30px rgba(15,23,42,0.07)",
             padding: "20px 24px 26px",
@@ -529,6 +707,7 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
                   padding: "6px 12px",
                   fontSize: 13,
                   minWidth: 220,
+                  background: "#ffffff",
                 }}
               />
               <button
@@ -541,7 +720,7 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
                   fontSize: 13,
                   fontWeight: 500,
                   background: "#111827",
-                  color: "#fff",
+                  color: "#ffffff",
                   cursor: "pointer",
                 }}
               >
@@ -639,7 +818,7 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
                               padding: "5px 10px",
                               fontSize: 12,
                               background: "#111827",
-                              color: "#fff",
+                              color: "#ffffff",
                               cursor: "pointer",
                               opacity:
                                 lockBusyId === p._id || lockedByOther
@@ -671,12 +850,27 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
                               border: "1px solid #e5e7eb",
                               padding: "5px 10px",
                               fontSize: 12,
-                              background: "#fff",
+                              background: "#ffffff",
                               color: "#111827",
                               cursor: "pointer",
                             }}
                           >
                             📄 View PDF
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteMyProject(p)}
+                            style={{
+                              borderRadius: 999,
+                              border: "1px solid #fecaca",
+                              padding: "5px 10px",
+                              fontSize: 12,
+                              background: "#fef2f2",
+                              color: "#b91c1c",
+                              cursor: "pointer",
+                            }}
+                          >
+                            🗑 Delete
                           </button>
                           {lockedByOther && (
                             <span
@@ -731,8 +925,8 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
           />
         )}
 
-        {/* Change password modal */}
-        {showPasswordModal && (
+        {/* Edit profile modal (name + password) */}
+        {showProfileModal && (
           <div
             style={{
               position: "fixed",
@@ -744,13 +938,13 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
               justifyContent: "center",
               padding: 16,
             }}
-            onClick={closePasswordModal}
+            onClick={closeProfileModal}
           >
             <div
               style={{
                 width: "100%",
                 maxWidth: 420,
-                background: "#fff",
+                background: "#ffffff",
                 borderRadius: 16,
                 boxShadow: "0 20px 50px rgba(15,23,42,0.25)",
                 overflow: "hidden",
@@ -758,18 +952,20 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
               onClick={(e) => e.stopPropagation()}
             >
               <header
-                style={{
-                  padding: "12px 16px",
-                  borderBottom: "1px solid #e5e7eb",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
+                style={
+                  {
+                    padding: "12px 16px",
+                    borderBottom: "1px solid #e5e7eb",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }
+                }
               >
-                <strong>Change password</strong>
+                <strong>Edit profile</strong>
                 <button
                   type="button"
-                  onClick={closePasswordModal}
+                  onClick={closeProfileModal}
                   style={{
                     border: "none",
                     background: "transparent",
@@ -781,8 +977,50 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
                 </button>
               </header>
 
-              <form onSubmit={handlePasswordSubmit}>
+              <form onSubmit={handleProfileSubmit}>
                 <div style={{ padding: "14px 16px 6px" }}>
+                  {/* Name */}
+                  <div style={{ marginBottom: 10 }}>
+                    <label
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: 0.04,
+                        color: "#6b7280",
+                        display: "block",
+                        marginBottom: 4,
+                      }}
+                    >
+                      Full name
+                    </label>
+                    <input
+                      type="text"
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        border: "1px solid #d1d5db",
+                        fontSize: 14,
+                        background: "#ffffff",
+                      }}
+                    />
+                  </div>
+
+                  <p
+                    style={{
+                      fontSize: 11,
+                      color: "#9ca3af",
+                      marginBottom: 12,
+                    }}
+                  >
+                    Leave the password fields empty if you only want to update
+                    your name.
+                  </p>
+
+                  {/* Current password */}
                   <div style={{ marginBottom: 10 }}>
                     <label
                       style={{
@@ -807,10 +1045,12 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
                         borderRadius: 8,
                         border: "1px solid #d1d5db",
                         fontSize: 14,
+                        background: "#ffffff",
                       }}
                     />
                   </div>
 
+                  {/* New password */}
                   <div style={{ marginBottom: 10 }}>
                     <label
                       style={{
@@ -835,10 +1075,12 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
                         borderRadius: 8,
                         border: "1px solid #d1d5db",
                         fontSize: 14,
+                        background: "#ffffff",
                       }}
                     />
                   </div>
 
+                  {/* Confirm new password */}
                   <div style={{ marginBottom: 4 }}>
                     <label
                       style={{
@@ -863,6 +1105,7 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
                         borderRadius: 8,
                         border: "1px solid #d1d5db",
                         fontSize: 14,
+                        background: "#ffffff",
                       }}
                     />
                   </div>
@@ -879,14 +1122,14 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
                 >
                   <button
                     type="button"
-                    onClick={closePasswordModal}
-                    disabled={savingPassword}
+                    onClick={closeProfileModal}
+                    disabled={savingProfile}
                     style={{
                       borderRadius: 999,
                       border: "1px solid #d1d5db",
                       padding: "6px 14px",
                       fontSize: 13,
-                      background: "#fff",
+                      background: "#ffffff",
                       cursor: "pointer",
                     }}
                   >
@@ -894,7 +1137,7 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
                   </button>
                   <button
                     type="submit"
-                    disabled={savingPassword}
+                    disabled={savingProfile}
                     style={{
                       borderRadius: 999,
                       border: "none",
@@ -902,11 +1145,11 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
                       fontSize: 13,
                       fontWeight: 500,
                       background: "#111827",
-                      color: "#fff",
+                      color: "#ffffff",
                       cursor: "pointer",
                     }}
                   >
-                    {savingPassword ? "Saving…" : "Save password"}
+                    {savingProfile ? "Saving…" : "Save changes"}
                   </button>
                 </footer>
               </form>
@@ -930,8 +1173,8 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
             <div
               style={{
                 padding: "8px 16px",
-                background: "#111",
-                color: "#fff",
+                background: "#111827",
+                color: "#ffffff",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
@@ -946,8 +1189,8 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
                 onClick={() => setPreviewItem(null)}
                 style={{
                   border: "none",
-                  background: "#fff",
-                  color: "#111",
+                  background: "#ffffff",
+                  color: "#111827",
                   borderRadius: 999,
                   padding: "4px 10px",
                   cursor: "pointer",
@@ -966,7 +1209,7 @@ export default function Profile({ onLogout = () => { }, onNavigate = () => { } }
                   width: "100%",
                   height: "100%",
                   border: "none",
-                  background: "#333",
+                  background: "#333333",
                 }}
               />
             </div>

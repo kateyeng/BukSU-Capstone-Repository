@@ -1,27 +1,49 @@
-// routes/studentProjects.js
+// backend/src/routes/studentProjects.js
 import express from "express";
-import { requireAuth, requireRole } from "../middleware/auth.js"; // adjust path
+import { protect, requireRole } from "../middleware/auth.js";
 import {
     uploadProject,
     getMyProjects,
-} from "../controllers/student/projectController.js"; // adjust path
+    deleteMyProject,
+    lockMyProject,
+    unlockMyProject,
+    downloadMyProject,
+} from "../controllers/student/projectController.js"; // make sure these exist
 
 const router = express.Router();
 
-// existing upload route
-router.post(
-    "/projects",
-    requireAuth,
-    requireRole("student"),
-    uploadProject
-);
+/**
+ * All student project routes:
+ * base path in server: app.use("/api/student", studentProjectsRouter);
+ *
+ * Frontend calls:
+ *  - POST   /api/student/projects               (upload)
+ *  - GET    /api/student/projects/mine          (list my projects)
+ *  - DELETE /api/student/projects/:id           (delete my project)
+ *  - POST   /api/student/projects/:id/lock      (2PL lock)
+ *  - POST   /api/student/projects/:id/unlock    (2PL unlock)
+ *  - GET    /api/student/projects/:id/download  (download my PDF)
+ */
 
-// ✅ NEW: get all projects uploaded by this student
-router.get(
-    "/projects/mine",
-    requireAuth,
-    requireRole("student"),
-    getMyProjects
-);
+// all require login as student
+router.use(protect, requireRole("student"));
+
+/* UPLOAD A NEW PROJECT */
+router.post("/projects", uploadProject);
+
+/* GET ALL PROJECTS OF LOGGED-IN STUDENT */
+router.get("/projects/mine", getMyProjects);
+
+/* DELETE MY OWN PROJECT */
+router.delete("/projects/:id", deleteMyProject);
+
+/* 2PL: LOCK FOR EDITING */
+router.post("/projects/:id/lock", lockMyProject);
+
+/* 2PL: UNLOCK AFTER EDIT */
+router.post("/projects/:id/unlock", unlockMyProject);
+
+/* DOWNLOAD MY PROJECT PDF */
+router.get("/projects/:id/download", downloadMyProject);
 
 export default router;
