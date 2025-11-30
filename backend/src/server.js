@@ -30,7 +30,7 @@ const app = express();
 
 const NODE_ENV = process.env.NODE_ENV || "development";
 const PORT = process.env.PORT || 3000;
-const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+const CLIENT_URL = process.env.CLIENT_URL ;
 const SESSION_SECRET = process.env.SESSION_SECRET || "dev-secret-change-me";
 
 connectDB();

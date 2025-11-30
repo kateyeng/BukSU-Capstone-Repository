@@ -17,7 +17,17 @@ const ProjectSchema = new mongoose.Schema(
       },
     },
 
-    adviser: { type: String, trim: true, maxlength: 200 },
+    // Adviser / reviewer
+    // Who approved / rejected this thesis (teacher or admin)
+    adviser: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user", // same model name as `owner`
+    },
+    // Human-readable copy of adviser name (for convenience)
+    adviserName: { type: String, trim: true, maxlength: 200 },
+
+    // Department / program text (e.g. "Information Technology")
+    department: { type: String, trim: true, maxlength: 200 },
 
     submitterEmail: { type: String, trim: true, lowercase: true },
     contactEmail: { type: String, trim: true, lowercase: true },

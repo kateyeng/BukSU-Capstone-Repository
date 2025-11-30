@@ -33,6 +33,51 @@ function hasActiveLock(doc) {
   return true;
 }
 
+/* ========= LIST FOR TEACHER ACTIVITY ========= */
+
+// GET /api/teacher/thesis?limit=1000
+export async function listTeacherThesis(req, res) {
+  try {
+    const limit = Number(req.query.limit) || 1000;
+
+    // if you only want this teacher's theses, uncomment:
+    // const filter = { adviser: req.user._id };
+    const filter = {};
+
+    const docs = await Thesis.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .populate("adviser", "fullName name email");
+
+    const thesis = docs.map((t) => {
+      const obj = t.toObject();
+
+      const adviserPop =
+        t.adviser && typeof t.adviser === "object" && t.adviser !== null
+          ? t.adviser
+          : null;
+
+      const adviserName =
+        obj.adviserName || // may already be saved on the thesis
+        adviserPop?.fullName ||
+        adviserPop?.name ||
+        adviserPop?.email ||
+        "";
+
+      return {
+        ...obj,
+        adviserId: adviserPop?._id || obj.adviser || null,
+        adviserName,
+      };
+    });
+
+    return res.json({ thesis });
+  } catch (err) {
+    console.error("[TEACHER][LIST][ERROR]", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
 /* ========= STATUS (approve / reject / pending) ========= */
 
 // PATCH /api/teacher/thesis/:id/status
@@ -49,6 +94,21 @@ export async function setThesisStatus(req, res) {
     if (!thesis) return res.status(404).json({ message: "Not found" });
 
     thesis.status = status;
+
+    // ---- record who reviewed this thesis ----
+    if (req.user?._id) {
+      thesis.adviser = req.user._id; // ObjectId ref to user
+    }
+    const reviewerName =
+      req.user?.name || req.user?.fullName || req.user?.email || null;
+    if (reviewerName) {
+      thesis.adviserName = reviewerName;
+    }
+    if (!thesis.department && req.user?.department) {
+      thesis.department = req.user.department;
+    }
+    // -----------------------------------------
+
     await thesis.save();
 
     const to = await getSubmitterEmail(thesis);
