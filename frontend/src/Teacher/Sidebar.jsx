@@ -1,25 +1,14 @@
 // src/Teacher/Sidebar.jsx
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { useEffect, useState } from "react";
 import "./teacher.css";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-function getInitials(name = "") {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((n) => n[0]?.toUpperCase())
-    .join("");
-}
-
-export default function Sidebar() {
-  const navigate = useNavigate();
+export default function Sidebar({ onLogout, onNavigate }) {
   const [me, setMe] = useState(null);
   const [loadingMe, setLoadingMe] = useState(true);
 
-  // Load current teacher/admin
   useEffect(() => {
     let abort = false;
 
@@ -42,7 +31,6 @@ export default function Sidebar() {
 
     fetchMe();
 
-    // listen for profile update events from Profile page
     function handleProfileUpdated(e) {
       const updatedUser = e.detail?.user;
       if (updatedUser) {
@@ -61,11 +49,25 @@ export default function Sidebar() {
     };
   }, []);
 
-  const displayName =
-    (me && (me.name || me.fullName || me.email)) || "Teacher";
-  const roleLabel = (me && (me.role || "teacher")) || "teacher";
-  const avatarUrl =
-    me?.avatarUrl || me?.picture || me?.photo || me?.googlePhotoUrl || null;
+  const handleLogout = () => {
+    // call the parent logout handler if provided
+    if (onLogout) {
+      onLogout();
+      return;
+    }
+
+    // fallback: direct API call + hard redirect
+    fetch(`${API}/api/auth/logoutUser`, {
+      method: "POST",
+      credentials: "include",
+    }).finally(() => {
+      window.location.href = "/login"; // or "/" for landing
+    });
+  };
+
+  const handleNavClick = (path) => {
+    if (onNavigate) onNavigate(path);
+  };
 
   return (
     <aside className="admin-sidebar">
@@ -73,31 +75,14 @@ export default function Sidebar() {
         <span className="dot" /> Teacher Panel
       </div>
 
-      {/* User block (binds to profile changes) */}
-      <div className="sidebar-user">
-        {avatarUrl ? (
-          <img src={avatarUrl} alt="Profile" className="sidebar-user__avatar" />
-        ) : (
-          <div className="sidebar-user__avatar sidebar-user__avatar--fallback">
-            {loadingMe ? "…" : getInitials(displayName)}
-          </div>
-        )}
-
-        <div className="sidebar-user__info">
-          <div className="sidebar-user__name">
-            {loadingMe ? "Loading…" : displayName}
-          </div>
-          <div className="sidebar-user__role">
-            {roleLabel.charAt(0).toUpperCase() + roleLabel.slice(1)}
-          </div>
-        </div>
-      </div>
+      {/* user block removed */}
 
       <nav className="nav">
         <NavLink
           to="/teacher"
           end
           className={({ isActive }) => (isActive ? "active" : undefined)}
+          onClick={() => handleNavClick("dashboard")}
         >
           Dashboard
         </NavLink>
@@ -105,13 +90,15 @@ export default function Sidebar() {
         <NavLink
           to="/teacher/thesis"
           className={({ isActive }) => (isActive ? "active" : undefined)}
+          onClick={() => handleNavClick("thesis")}
         >
-          Thesis
+          Capstone
         </NavLink>
 
         <NavLink
           to="/teacher/activity"
           className={({ isActive }) => (isActive ? "active" : undefined)}
+          onClick={() => handleNavClick("activity")}
         >
           Activity
         </NavLink>
@@ -121,6 +108,7 @@ export default function Sidebar() {
           className={({ isActive }) =>
             isActive ? "active profile-link" : "profile-link"
           }
+          onClick={() => handleNavClick("profile")}
         >
           Profile
         </NavLink>
@@ -128,15 +116,7 @@ export default function Sidebar() {
 
       <div className="sidebar-spacer" />
 
-      <button
-        className="logout"
-        onClick={() =>
-          fetch(`${API}/api/auth/logoutUser`, {
-            method: "POST",
-            credentials: "include",
-          }).finally(() => navigate("/login", { replace: true }))
-        }
-      >
+      <button className="logout" onClick={handleLogout}>
         Logout
       </button>
     </aside>

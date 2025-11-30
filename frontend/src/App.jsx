@@ -19,7 +19,7 @@ import PublicAbout from "./Public/About.jsx";
 import PublicContact from "./Public/Contact.jsx";
 
 /* ===== Auth ===== */
-import LoginForm from "./Login/LoginForm.jsx";
+import LoginPage from "./Login/LoginForm.jsx";
 import SignUpForm from "./Login/SignUpForm.jsx";
 import ForgotPassword from "./Login/ForgotPassword.jsx";
 import Code from "./Login/Code.jsx";
@@ -39,7 +39,7 @@ import StudentBookmarks from "./Student/Bookmarks.jsx";
 import TeacherDashboard from "./Teacher/Dashboard.jsx";
 import TeacherThesis from "./Teacher/Thesis.jsx";
 import TeacherActivity from "./Teacher/Activity.jsx";
-import TeacherProfile from "./Teacher/Profile.jsx"; // 👈 NEW
+import TeacherProfile from "./Teacher/Profile.jsx";
 
 /* ===== Admin (login required) ===== */
 import AdminLayout from "./Admin/adminLayout.jsx";
@@ -49,6 +49,11 @@ import RolePermissions from "./Admin/RolePermissions.jsx";
 import Capstone from "./Admin/Capstone.jsx";
 import Backup from "./Admin/Backup.jsx";
 
+/**
+ * IMPORTANT CHANGE:
+ * Add a fallback to localhost so logout still works in dev
+ * even if VITE_API_URL is not set.
+ */
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 /* =================== OAUTH NOTICE =================== */
@@ -113,10 +118,15 @@ const normRole = (v) => {
 };
 
 function RequireRole({ user, roles, children }) {
-  if (!user) return <Navigate to="/login" replace />;
+  // If not logged in → go to landing page
+  if (!user) return <Navigate to="/" replace />;
+
+  // Logged in but wrong role → also send to landing page
   if (!roles.includes(user.role)) return <Navigate to="/" replace />;
+
   return children;
 }
+
 
 /* ---------- PUBLIC (guest) wrappers ---------- */
 function PublicHomePage() {
@@ -272,7 +282,7 @@ function TeacherHome({ onLogout }) {
         if (dest === "dashboard") nav("/teacher");
         else if (dest === "thesis") nav("/teacher/thesis");
         else if (dest === "activity") nav("/teacher/activity");
-        else if (dest === "profile") nav("/teacher/profile"); // 👈 NEW
+        else if (dest === "profile") nav("/teacher/profile");
       }}
     />
   );
@@ -287,35 +297,10 @@ function TeacherActivityPage({ onLogout }) {
 }
 
 function TeacherProfilePage() {
-  // TeacherProfile has its own Sidebar + logout,
-  // so we don't need onLogout here.
   return <TeacherProfile />;
 }
 
 /* ---------- Auth wrappers ---------- */
-function LoginPage({ setUser }) {
-  const nav = useNavigate();
-
-  return (
-    <LoginForm
-      onSwitch={() => nav("/signup")}
-      onForgot={() => nav("/forgot")}
-      onSuccess={(userFromApi) => {
-        console.log("onSuccess user from API:", userFromApi);
-
-        const role = normRole(userFromApi?.role);
-        const userSafe = { ...userFromApi, role };
-        console.log("Normalized role:", role);
-        setUser(userSafe);
-
-        if (role === "admin") nav("/admin", { replace: true });
-        else if (role === "teacher") nav("/teacher", { replace: true });
-        else if (role === "student") nav("/student", { replace: true });
-        else nav("/", { replace: true });
-      }}
-    />
-  );
-}
 
 const SignUpPage = () => <SignUpForm onSwitch={() => history.back()} />;
 
@@ -367,6 +352,7 @@ export default function App() {
 
     (async () => {
       try {
+        // Check current session via cookie-based auth
         const res = await api.get("/api/auth/me", { withCredentials: true });
         const data = res.data;
         const u = data?.user || data;
@@ -432,8 +418,50 @@ export default function App() {
 
       <Routes>
         {/* ===== PUBLIC (guest) ===== */}
-        <Route path="/" element={<PublicHomePage />} />
-        <Route path="/dashboard" element={<PublicHomePage />} />
+        <Route
+          path="/"
+          element={
+            user ? (
+              <Navigate
+                to={
+                  user.role === "admin"
+                    ? "/admin"
+                    : user.role === "teacher"
+                      ? "/teacher"
+                      : user.role === "student"
+                        ? "/student"
+                        : "/"
+                }
+                replace
+              />
+            ) : (
+              <PublicHomePage />
+            )
+          }
+        />
+
+        <Route
+          path="/dashboard"
+          element={
+            user ? (
+              <Navigate
+                to={
+                  user.role === "admin"
+                    ? "/admin"
+                    : user.role === "teacher"
+                      ? "/teacher"
+                      : user.role === "student"
+                        ? "/student"
+                        : "/"
+                }
+                replace
+              />
+            ) : (
+              <PublicHomePage />
+            )
+          }
+        />
+
 
         <Route
           path="/browse"
@@ -463,7 +491,42 @@ export default function App() {
         <Route path="/contact" element={<PublicContact />} />
 
         {/* ===== AUTH ===== */}
-        <Route path="/login" element={<LoginPage setUser={setUser} />} />
+        <Route
+          path="/login"
+          element={
+            user ? (
+              <Navigate
+                to={
+                  user.role === "admin"
+                    ? "/admin"
+                    : user.role === "teacher"
+                      ? "/teacher"
+                      : user.role === "student"
+                        ? "/student"
+                        : "/"
+                }
+                replace
+              />
+            ) : (
+              <LoginPage
+                onLoginSuccess={(userFromApi) => {
+                  console.log("onLoginSuccess user from API:", userFromApi);
+
+                  const role = normRole(userFromApi?.role);
+                  const userSafe = { ...userFromApi, role };
+                  setUser(userSafe);
+
+                  // Redirect based on normalized role
+                  if (role === "admin") nav("/admin", { replace: true });
+                  else if (role === "teacher") nav("/teacher", { replace: true });
+                  else if (role === "student") nav("/student", { replace: true });
+                  else nav("/", { replace: true });
+                }}
+              />
+            )
+          }
+        />
+
         <Route path="/signup" element={<SignUpPage />} />
         <Route
           path="/forgot"
@@ -594,7 +657,28 @@ export default function App() {
         </Route>
 
         {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route
+          path="*"
+          element={
+            user ? (
+              <Navigate
+                to={
+                  user.role === "admin"
+                    ? "/admin"
+                    : user.role === "teacher"
+                      ? "/teacher"
+                      : user.role === "student"
+                        ? "/student"
+                        : "/"
+                }
+                replace
+              />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+
       </Routes>
     </>
   );

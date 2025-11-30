@@ -12,7 +12,6 @@ import adminRoutes from "./routes/admin.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import backupRoutes from "./routes/backup.routes.js";
-// ✅ NEW
 
 import passport from "passport";
 import session from "express-session";
@@ -69,6 +68,14 @@ app.use(
       "X-User-Id",
       "X-Uploader-Role",
     ],
+  })
+);
+
+
+app.use(
+  cors({
+    origin: "http://localhost:5173", // frontend origin
+    credentials: true,               // allow cookies
   })
 );
 

@@ -143,8 +143,8 @@ export default function Browse({ onLogout, onNavigate }) {
         active="browse"
       />
 
+      {/* toolbar: search + filters */}
       <div className="browse-page">
-        {/* toolbar: search + filters */}
         <div className="browse-toolbar">
           <div className="searchbar">
             <svg viewBox="0 0 24 24" className="search-icon" aria-hidden>
@@ -159,7 +159,6 @@ export default function Browse({ onLogout, onNavigate }) {
               placeholder="Search by title, author, or keyword..."
             />
           </div>
-
           <div className="filters-row">
             <div className="select-pill">
               <select

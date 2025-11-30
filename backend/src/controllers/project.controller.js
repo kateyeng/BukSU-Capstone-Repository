@@ -2,7 +2,10 @@
 import Project from "../models/project.model.js";
 import cloudinary from "../config/cloudinary.js";
 
-/* Helper: upload buffer to Cloudinary as RAW (PDF) */
+import { google } from "googleapis";
+import { Readable } from "stream";
+
+/* ========= Cloudinary: upload buffer as RAW PDF ========= */
 function uploadPdfBufferToCloudinary(file) {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
@@ -22,6 +25,73 @@ function uploadPdfBufferToCloudinary(file) {
 
     uploadStream.end(file.buffer);
   });
+}
+
+/* ========= Google Drive helpers (backup only) ========= */
+
+// Build a Google OAuth2 client from env vars (using refresh token)
+function getDriveAuthClient() {
+  const clientId = process.env.GOOGLE_DRIVE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_DRIVE_CLIENT_SECRET;
+  const redirectUri = process.env.GOOGLE_DRIVE_REDIRECT_URI;
+  const refreshToken = process.env.GOOGLE_DRIVE_REFRESH_TOKEN;
+
+  if (!clientId || !clientSecret || !redirectUri || !refreshToken) {
+    console.warn(
+      "[GDRIVE] Missing one of GOOGLE_DRIVE_CLIENT_ID / GOOGLE_DRIVE_CLIENT_SECRET / GOOGLE_DRIVE_REDIRECT_URI / GOOGLE_DRIVE_REFRESH_TOKEN – skipping Drive backup."
+    );
+    return null;
+  }
+
+  const oAuth2Client = new google.auth.OAuth2(
+    clientId,
+    clientSecret,
+    redirectUri
+  );
+
+  oAuth2Client.setCredentials({ refresh_token: refreshToken });
+
+  return oAuth2Client;
+}
+
+// Upload the PDF buffer to a Drive folder as backup
+async function backupPdfToGoogleDrive(file) {
+  const auth = getDriveAuthClient();
+  if (!auth) return null;
+
+  const drive = google.drive({ version: "v3", auth });
+
+  const folderId =
+    process.env.DRIVE_THESIS_FOLDER_ID || process.env.DRIVE_BACKUP_FOLDER_ID;
+
+  if (!folderId) {
+    console.warn(
+      "[GDRIVE] No DRIVE_THESIS_FOLDER_ID or DRIVE_BACKUP_FOLDER_ID set – skipping Drive backup."
+    );
+    return null;
+  }
+
+  // Turn buffer into a readable stream
+  const bufferStream = new Readable();
+  bufferStream.push(file.buffer);
+  bufferStream.push(null);
+
+  const fileName = `${Date.now()}-${file.originalname}`;
+
+  const res = await drive.files.create({
+    requestBody: {
+      name: fileName,
+      mimeType: file.mimetype,
+      parents: [folderId],
+    },
+    media: {
+      mimeType: file.mimetype,
+      body: bufferStream,
+    },
+    fields: "id, name, webViewLink, webContentLink",
+  });
+
+  return res.data;
 }
 
 /* ---------- CREATE PROJECT (student / teacher / admin via RBAC) ---------- */
@@ -80,8 +150,26 @@ export const createProject = async (req, res) => {
       return res.status(401).json({ message: "Not authenticated" });
     }
 
-    // upload PDF to Cloudinary
+    // 1) Upload PDF to Cloudinary (main storage)
     const uploadResult = await uploadPdfBufferToCloudinary(req.file);
+
+    // 2) Fire-and-forget backup to Google Drive
+    //    (if this fails, we still keep the Cloudinary upload)
+    try {
+      const driveMeta = await backupPdfToGoogleDrive(req.file);
+      if (driveMeta?.id) {
+        console.log(
+          "[GDRIVE][BACKUP] OK ->",
+          driveMeta.id,
+          driveMeta.webViewLink
+        );
+      }
+    } catch (driveErr) {
+      console.error(
+        "[GDRIVE][BACKUP][ERROR]",
+        driveErr?.response?.data || driveErr
+      );
+    }
 
     const project = await Project.create({
       title,
@@ -97,7 +185,7 @@ export const createProject = async (req, res) => {
       status,
       owner: ownerId,
 
-      // Cloudinary file info
+      // Cloudinary file info (primary)
       fileUrl: uploadResult.secure_url,
       cloudinaryPublicId: uploadResult.public_id,
 
@@ -167,6 +255,7 @@ export const updateProject = async (req, res) => {
         return res.status(400).json({ message: "Only PDF files are allowed" });
       }
 
+      // 1) Replace file in Cloudinary
       const uploadResult = await uploadPdfBufferToCloudinary(req.file);
 
       update.fileUrl = uploadResult.secure_url;
@@ -174,6 +263,23 @@ export const updateProject = async (req, res) => {
       update.filePath = null;
       update.mimeType = req.file.mimetype;
       update.fileSize = req.file.size;
+
+      // 2) Backup new version to Drive (again, ignore failure)
+      try {
+        const driveMeta = await backupPdfToGoogleDrive(req.file);
+        if (driveMeta?.id) {
+          console.log(
+            "[GDRIVE][BACKUP][UPDATE] OK ->",
+            driveMeta.id,
+            driveMeta.webViewLink
+          );
+        }
+      } catch (driveErr) {
+        console.error(
+          "[GDRIVE][BACKUP][UPDATE][ERROR]",
+          driveErr?.response?.data || driveErr
+        );
+      }
     }
 
     const project = await Project.findByIdAndUpdate(id, update, { new: true });
@@ -297,7 +403,9 @@ export const lockMyProject = async (req, res) => {
     const isAdmin = req.user.role === "admin";
 
     if (!isOwner && !isAdmin) {
-      return res.status(403).json({ message: "Not allowed to edit this project" });
+      return res
+        .status(403)
+        .json({ message: "Not allowed to edit this project" });
     }
 
     const existing = project.editLock;
@@ -306,9 +414,9 @@ export const lockMyProject = async (req, res) => {
       existing?.lockedBy &&
       existing.lockedBy.toString() !== req.user._id.toString()
     ) {
-      return res
-        .status(423)
-        .json({ message: "This thesis is currently being edited by someone else." });
+      return res.status(423).json({
+        message: "This thesis is currently being edited by someone else.",
+      });
     }
 
     const now = new Date();
@@ -345,8 +453,7 @@ export const unlockMyProject = async (req, res) => {
     const lock = project.editLock;
     const userId = req.user._id.toString();
     const isAdmin = req.user.role === "admin";
-    const isOwner =
-      project.owner && project.owner.toString() === userId;
+    const isOwner = project.owner && project.owner.toString() === userId;
 
     // only lock owner / owner of thesis / admin can unlock an active lock
     if (

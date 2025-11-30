@@ -4,6 +4,7 @@ import User from "../../models/user.model.js";
 import { generateToken } from "../../utils/token.js";
 import { toPublicUser } from "../../utils/publicUser.js";
 import { sendWelcomeEmail } from "../../utils/email.js";
+import { clearToken } from "../../utils/token.js";
 import axios from "axios";
 import dotenv from "dotenv";
 
@@ -124,12 +125,8 @@ export async function registerUser(req, res) {
 }
 
 // ====================== LOGOUT ======================
+
 export async function logoutUser(_req, res) {
-  res.cookie("jwt", "", {
-    httpOnly: true,
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 0,
-  });
+  clearToken(res); // ⬅️ this uses res.clearCookie("jwt", { sameSite, secure, httpOnly })
   return res.status(200).json({ message: "Logged out successfully" });
 }

@@ -12,9 +12,7 @@ export const generateToken = (user, res) => {
     httpOnly: true,
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    // path: "/",           // default
-    // domain: ".yourdomain.com", // set in prod if using subdomains
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 
   return token;

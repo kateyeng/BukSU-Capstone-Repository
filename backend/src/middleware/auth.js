@@ -2,24 +2,35 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import Project from "../models/project.model.js";
+import { clearToken } from "../utils/token.js";
 
 export async function protect(req, res, next) {
   try {
-    const token = req.cookies?.jwt; // ⬅️ must match cookie name
+    const token = req.cookies?.jwt; // must match cookie name
+
+    // No token at all → ensure cookie is gone and block
     if (!token) {
+      clearToken(res); // ⬅️ clear stray cookie if any
       return res.status(401).json({ message: "Not authenticated" });
     }
 
+    // Verify JWT
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
     const user = await User.findById(decoded.id).select("-password");
     if (!user) {
+      // Token refers to a user that no longer exists
+      clearToken(res);
       return res.status(401).json({ message: "User not found" });
     }
 
+    // All good, attach user to request
     req.user = user;
     next();
   } catch (e) {
     console.error("protect error:", e);
+    // Invalid / expired token → clear cookie and force re-login
+    clearToken(res);
     return res.status(401).json({ message: "Invalid token" });
   }
 }

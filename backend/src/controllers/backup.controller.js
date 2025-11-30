@@ -1,24 +1,15 @@
 // backend/src/controllers/backup.controller.js
-// Backup & Restore using mongodump / mongorestore
-//
-// Required ENV:
-//   atlas_URI           → your main MongoDB URI (with ?appName is OK here)
-//   MONGO_TOOLS_URI     → tools URI without ?appName, e.g. ...mongodb.net/test
-//   BACKUP_DIR          → local backup root folder, e.g. C:/buksu_db_backups
-//   MONGODUMP_PATH      → full path to mongodump.exe  (optional)
-//   MONGORESTORE_PATH   → full path to mongorestore.exe (optional)
-//   MONGO_DB_NAME       → database name (e.g. "test")
+// Local folder backup (for restore) + ZIP archive + Google Drive upload (for safekeeping)
 
 import { exec } from "child_process";
 import fs from "fs";
 import path from "path";
+import archiver from "archiver";
+import { google } from "googleapis";
 import Backup from "../models/backup.model.js";
 import User from "../models/user.model.js";
 
-/* ============================================
-   Helper: promisified exec
-============================================ */
-
+/* ========= Helper: exec as Promise ========= */
 function execPromise(cmd) {
     return new Promise((resolve, reject) => {
         exec(cmd, (err, stdout, stderr) => {
@@ -32,74 +23,172 @@ function execPromise(cmd) {
     });
 }
 
-/* ============================================
-   Helper: paths / binaries
-============================================ */
+/* ========= Helper: strip quotes from paths ========= */
+function stripQuotes(p) {
+    if (!p) return p;
+    return p.replace(/^"(.*)"$/, "$1").replace(/^'(.*)'$/, "$1");
+}
 
+/* ========= Helper: base backup directory ========= */
 function getBackupRootDir() {
     if (process.env.BACKUP_DIR && process.env.BACKUP_DIR.trim() !== "") {
-        return process.env.BACKUP_DIR; // e.g. C:/buksu_db_backups
+        return process.env.BACKUP_DIR;
     }
     return path.join(process.cwd(), "db_backups");
 }
 
-function getMongoDumpBin() {
-    return process.env.MONGODUMP_PATH || "mongodump";
-}
-
-function getMongoRestoreBin() {
-    return process.env.MONGORESTORE_PATH || "mongorestore";
-}
-
+/* ========= Mongo URI & DB name helpers ========= */
 function getMongoToolsUri() {
-    // Prefer dedicated tools URI (no ?appName)
-    return process.env.MONGO_TOOLS_URI || process.env.atlas_URI;
+    const fromEnv = process.env.MONGO_TOOLS_URI || process.env.atlas_URI;
+    if (!fromEnv) return null;
+    // strip any ?query part
+    return fromEnv.split("?")[0];
 }
 
 function getDbName() {
-    return process.env.MONGO_DB_NAME || "test";
+    if (process.env.MONGO_DB_NAME) return process.env.MONGO_DB_NAME;
+    const uri = process.env.MONGO_TOOLS_URI || process.env.atlas_URI || "";
+    const match = uri.match(/mongodb(?:\+srv)?:\/\/[^/]+\/([^?]+)/i);
+    return match?.[1] || "test";
 }
 
-/* ============================================
-   Helper: recursive folder size
-============================================ */
+/* ========= Mongo tools paths ========= */
+function getMongoDumpBin() {
+    const p = process.env.MONGODUMP_PATH;
+    if (p && p.trim() !== "") return stripQuotes(p.trim());
+    return "mongodump";
+}
 
-function getFolderSizeRecursive(dir) {
-    let total = 0;
+function getMongoRestoreBin() {
+    const p = process.env.MONGORESTORE_PATH;
+    if (p && p.trim() !== "") return stripQuotes(p.trim());
+    return "mongorestore";
+}
 
-    if (!fs.existsSync(dir)) return 0;
+/* ========= Zip a folder ========= */
+function zipFolder(folderPath, zipPath) {
+    return new Promise((resolve, reject) => {
+        const output = fs.createWriteStream(zipPath);
+        const archive = archiver("zip", { zlib: { level: 9 } });
 
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
+        output.on("close", () => resolve());
+        archive.on("error", (err) => reject(err));
 
-    for (const entry of entries) {
-        const fullPath = path.join(dir, entry.name);
-        if (entry.isDirectory()) {
-            total += getFolderSizeRecursive(fullPath);
-        } else if (entry.isFile()) {
-            total += fs.statSync(fullPath).size;
-        }
+        archive.pipe(output);
+        archive.directory(folderPath, false);
+        archive.finalize();
+    });
+}
+
+/* ========= Google Drive client (OAuth user account, DRIVE ONLY) ========= */
+
+function getDriveClient() {
+    const {
+        GOOGLE_DRIVE_CLIENT_ID,
+        GOOGLE_DRIVE_CLIENT_SECRET,
+        GOOGLE_DRIVE_REDIRECT_URI,
+        GOOGLE_DRIVE_REFRESH_TOKEN,
+    } = process.env;
+
+    // Debug: only show booleans so we see which ones are loaded
+    console.log("[Backup] Google Drive env presence:", {
+        GOOGLE_DRIVE_CLIENT_ID: !!GOOGLE_DRIVE_CLIENT_ID,
+        GOOGLE_DRIVE_CLIENT_SECRET: !!GOOGLE_DRIVE_CLIENT_SECRET,
+        GOOGLE_DRIVE_REDIRECT_URI: !!GOOGLE_DRIVE_REDIRECT_URI,
+        GOOGLE_DRIVE_REFRESH_TOKEN: !!GOOGLE_DRIVE_REFRESH_TOKEN,
+    });
+
+    if (
+        !GOOGLE_DRIVE_CLIENT_ID ||
+        !GOOGLE_DRIVE_CLIENT_SECRET ||
+        !GOOGLE_DRIVE_REDIRECT_URI ||
+        !GOOGLE_DRIVE_REFRESH_TOKEN
+    ) {
+        console.warn(
+            "[Backup] GOOGLE_DRIVE_CLIENT_ID / GOOGLE_DRIVE_CLIENT_SECRET / GOOGLE_DRIVE_REDIRECT_URI / GOOGLE_DRIVE_REFRESH_TOKEN not set. Skipping Drive upload."
+        );
+        return null;
     }
 
-    return total;
+    const oAuth2Client = new google.auth.OAuth2(
+        GOOGLE_DRIVE_CLIENT_ID,
+        GOOGLE_DRIVE_CLIENT_SECRET,
+        GOOGLE_DRIVE_REDIRECT_URI
+    );
+
+    // refresh token gives us access tokens automatically
+    oAuth2Client.setCredentials({ refresh_token: GOOGLE_DRIVE_REFRESH_TOKEN });
+
+    return google.drive({ version: "v3", auth: oAuth2Client });
+}
+
+async function uploadZipToDrive(zipPath, backupFolderName) {
+    const drive = getDriveClient();
+    if (!drive) return { driveError: "Drive client not configured" };
+
+    if (!fs.existsSync(zipPath)) {
+        return { driveError: "ZIP file does not exist" };
+    }
+
+    const folderId = process.env.DRIVE_BACKUP_FOLDER_ID || null;
+    const fileName = `${backupFolderName}.zip`;
+
+    const fileMetadata = { name: fileName };
+    if (folderId) fileMetadata.parents = [folderId];
+
+    const media = {
+        mimeType: "application/zip",
+        body: fs.createReadStream(zipPath),
+    };
+
+    try {
+        const resp = await drive.files.create({
+            requestBody: fileMetadata,
+            media,
+            fields: "id, webViewLink, webContentLink, size",
+        });
+
+        const f = resp.data;
+        console.log("[Backup] Drive upload success. File ID:", f.id);
+
+        return {
+            driveFileId: f.id || null,
+            driveWebViewLink: f.webViewLink || null,
+            driveWebContentLink: f.webContentLink || null,
+            driveSizeBytes: f.size ? Number(f.size) : null,
+        };
+    } catch (err) {
+        console.error("[Backup] Drive upload failed:", err.response?.data || err);
+        return {
+            driveError:
+                err.response?.data?.error?.message ||
+                err.message ||
+                "Drive upload failed",
+        };
+    }
 }
 
 /* ============================================
-   CREATE BACKUP
+   CREATE BACKUP → local folder + ZIP + Drive
 ============================================ */
 
 export const runDbBackup = async (req, res) => {
     try {
         const mongoUri = getMongoToolsUri();
+        const dbName = getDbName();
+
         if (!mongoUri) {
             return res.status(500).json({
                 success: false,
-                message: "MONGO_TOOLS_URI or atlas_URI is not set in .env",
+                message: "MONGO_TOOLS_URI or atlas_URI is not set.",
             });
         }
 
+        // 1) Ensure root dir exists
         const rootDir = getBackupRootDir();
         fs.mkdirSync(rootDir, { recursive: true });
 
+        // 2) Build folder name + paths
         const timestamp = new Date()
             .toISOString()
             .replace(/T/, "_")
@@ -107,12 +196,15 @@ export const runDbBackup = async (req, res) => {
             .replace(/\..+/, "");
         const folderName = `backup-${timestamp}`;
         const backupDir = path.join(rootDir, folderName);
+        const zipPath = `${backupDir}.zip`;
 
+        // 3) Run mongodump
         const mongodumpBin = getMongoDumpBin();
         const cmd = `"${mongodumpBin}" --uri="${mongoUri}" --out="${backupDir}"`;
 
         console.log("\n========== BACKUP: MONGODUMP ==========");
-        console.log("[Backup] Using mongodump bin:", mongodumpBin);
+        console.log("[Backup] Using DB:", dbName);
+        console.log("[Backup] Using URI:", mongoUri);
         console.log("[Backup] Running:", cmd);
         console.log("=======================================\n");
 
@@ -143,52 +235,77 @@ export const runDbBackup = async (req, res) => {
             });
         }
 
-        if (!fs.existsSync(backupDir)) {
-            console.error("[Backup] Folder missing AFTER mongodump:", backupDir);
+        // 4) Check that backup folder + DB subfolder exists
+        const dbDir = path.join(backupDir, dbName);
+        if (!fs.existsSync(dbDir)) {
+            console.error("[Backup] DB folder missing AFTER mongodump:", dbDir);
             return res.status(500).json({
                 success: false,
-                message: `Backup folder not created at: ${backupDir}`,
+                message: `Backup folder for DB not created at: ${dbDir}`,
                 dumpStdout,
                 dumpStderr,
                 cmd,
             });
         }
 
-        // 🔹 Total size of backup folder (all nested files)
-        const sizeBytes = getFolderSizeRecursive(backupDir);
-
-        // 🔹 Count collections = *.bson files under /<dbName>
-        const dbName = getDbName();
+        // 5) Calculate approximate size (sum of files in dbDir)
+        let sizeBytes = 0;
         let collectionsCount = 0;
-        const dbFolder = path.join(backupDir, dbName);
-        if (fs.existsSync(dbFolder)) {
-            const files = fs.readdirSync(dbFolder);
-            collectionsCount = files.filter((f) => f.endsWith(".bson")).length;
+        try {
+            const entries = fs.readdirSync(dbDir);
+            for (const name of entries) {
+                const full = path.join(dbDir, name);
+                const stat = fs.statSync(full);
+                if (stat.isFile()) {
+                    sizeBytes += stat.size;
+                    if (name.endsWith(".bson")) collectionsCount++;
+                }
+            }
+        } catch {
+            sizeBytes = 0;
+            collectionsCount = 0;
         }
 
         const userCountAtBackup = await User.countDocuments();
 
+        // 6) ZIP the whole backup folder
+        console.log("[Backup] Zipping folder:", backupDir);
+        await zipFolder(backupDir, zipPath);
+        const zipStat = fs.statSync(zipPath);
+        const zipSize = zipStat.size;
+
+        // 7) Upload ZIP to Google Drive (for keeping only)
+        const driveResult = await uploadZipToDrive(zipPath, folderName);
+
+        // 8) Save record in MongoDB
         const record = await Backup.create({
             fileName: folderName,
-            sizeBytes,
             dbName,
+            localPath: backupDir,
+            zipPath,
+            sizeBytes: zipSize,
             collectionsCount,
+            driveFileId: driveResult.driveFileId || null,
+            driveWebViewLink: driveResult.driveWebViewLink || null,
+            driveWebContentLink: driveResult.driveWebContentLink || null,
         });
 
         console.log("[Backup] SUCCESS. Backup id:", record._id.toString());
 
         return res.json({
             success: true,
-            message: "Backup created and stored locally.",
+            message:
+                "Backup created, zipped and stored locally. ZIP also uploaded to Google Drive (if configured).",
             backup: record,
             debug: {
                 backupDir,
+                dbDir,
+                zipPath,
                 cmd,
                 userCountAtBackup,
                 dumpStdout,
                 dumpStderr,
-                sizeBytes,
-                collectionsCount,
+                drive: driveResult,
             },
         });
     } catch (err) {
@@ -215,24 +332,48 @@ export const listBackups = async (req, res) => {
 };
 
 /* ============================================
-   DOWNLOAD BACKUP (placeholder)
+   DOWNLOAD BACKUP ZIP (local only)
 ============================================ */
 
 export const downloadBackup = async (req, res) => {
-    return res.status(501).json({
-        success: false,
-        message:
-            "Download is not implemented for folder-based backups yet. You can manually copy the backup folder from the server.",
-    });
+    try {
+        const backup = await Backup.findById(req.params.id);
+        if (!backup) {
+            return res
+                .status(404)
+                .json({ success: false, message: "Backup not found" });
+        }
+
+        if (!fs.existsSync(backup.zipPath)) {
+            return res.status(404).json({
+                success: false,
+                message: "Local ZIP file not found on server.",
+            });
+        }
+
+        res.setHeader(
+            "Content-Disposition",
+            `attachment; filename=${path.basename(backup.zipPath)}`
+        );
+        res.setHeader("Content-Type", "application/zip");
+
+        const stream = fs.createReadStream(backup.zipPath);
+        stream.pipe(res);
+    } catch (err) {
+        console.error("[Backup] downloadBackup error:", err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 };
 
 /* ============================================
-   RESTORE BACKUP
+   RESTORE BACKUP (from local folder ONLY)
 ============================================ */
 
 export const restoreBackup = async (req, res) => {
     try {
         const mongoUri = getMongoToolsUri();
+        const dbName = getDbName();
+
         if (!mongoUri) {
             return res.status(500).json({
                 success: false,
@@ -247,18 +388,7 @@ export const restoreBackup = async (req, res) => {
                 .json({ success: false, message: "Backup not found" });
         }
 
-        const rootDir = getBackupRootDir();
-        const backupDir = path.join(rootDir, backup.fileName);
-
-        if (!fs.existsSync(backupDir)) {
-            return res.status(404).json({
-                success: false,
-                message: "Backup folder missing on server.",
-            });
-        }
-
-        // 👉 point directly to the DB subfolder (e.g. ...\backup-xxx\test)
-        const dbName = getDbName(); // "test" from env or default
+        const backupDir = backup.localPath;
         const dbDir = path.join(backupDir, dbName);
 
         if (!fs.existsSync(dbDir)) {
@@ -272,8 +402,6 @@ export const restoreBackup = async (req, res) => {
         console.log("[Restore] Users BEFORE:", usersBefore);
 
         const mongorestoreBin = getMongoRestoreBin();
-
-        // 🔑 use DB folder as --dir
         const cmd = `"${mongorestoreBin}" --uri="${mongoUri}" --drop --dir="${dbDir}"`;
 
         console.log("\n========== RESTORE: MONGORESTORE ==========");
@@ -313,7 +441,7 @@ export const restoreBackup = async (req, res) => {
 
         return res.json({
             success: true,
-            message: "Database restored from backup.",
+            message: "Database restored from local backup.",
             debug: {
                 usersBefore,
                 usersAfter,
@@ -328,7 +456,6 @@ export const restoreBackup = async (req, res) => {
     }
 };
 
-
 /* ============================================
    DELETE BACKUP
 ============================================ */
@@ -342,11 +469,12 @@ export const deleteBackup = async (req, res) => {
                 .json({ success: false, message: "Backup not found" });
         }
 
-        const rootDir = getBackupRootDir();
-        const backupDir = path.join(rootDir, backup.fileName);
+        if (backup.localPath && fs.existsSync(backup.localPath)) {
+            fs.rmSync(backup.localPath, { recursive: true, force: true });
+        }
 
-        if (fs.existsSync(backupDir)) {
-            fs.rmSync(backupDir, { recursive: true, force: true });
+        if (backup.zipPath && fs.existsSync(backup.zipPath)) {
+            fs.rmSync(backup.zipPath, { recursive: true, force: true });
         }
 
         await backup.deleteOne();

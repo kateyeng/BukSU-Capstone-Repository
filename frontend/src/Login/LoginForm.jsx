@@ -5,35 +5,21 @@ import ReCAPTCHA from "react-google-recaptcha";
 import toast from "react-hot-toast";
 
 /* eslint-disable react/prop-types */
-export default function LoginPage({ setUser }) {
+export default function LoginPage({ onLoginSuccess }) {
   const navigate = useNavigate();
 
-  // Super-forgiving role normalizer
-  const normRole = (v) => {
-    const raw = String(v || "").toLowerCase().trim();
-    const compact = raw.replace(/\s+/g, "");
-    if (raw.includes("admin") || compact === "admin") return "admin";
-    if (raw.includes("teach") || compact === "teacher") return "teacher";
-    if (raw.includes("stud") || compact === "student") return "student";
-    return "guest";
-  };
-
-  // Called after API login success
   const handleLoginSuccess = (user) => {
     console.log("Logged in user:", user);
 
-    const role = normRole(user?.role);
-    const userSafe = { ...user, role };
-
-    // 🔑 This is what App.jsx needs
-    setUser?.(userSafe);
-
-    // Redirect by role
-    if (role === "admin") navigate("/admin", { replace: true });
-    else if (role === "teacher") navigate("/teacher", { replace: true });
-    else if (role === "student") navigate("/student", { replace: true });
-    else navigate("/dashboard", { replace: true }); // fallback → public
+    // Just pass the user up to App.jsx.
+    // App will normalize the role, setUser, and redirect.
+    if (onLoginSuccess) {
+      onLoginSuccess(user);
+    } else {
+      console.warn("LoginPage: onLoginSuccess prop is missing");
+    }
   };
+
 
   return (
     <div className="auth-page">

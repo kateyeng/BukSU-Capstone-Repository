@@ -52,7 +52,7 @@ passport.use(
           email,
           googleId: profile.id,
           profilePic: profile.photos?.[0]?.value || "",
-          role: "guest", // ❗ pending until admin/teacher upgrades role
+          role: "guest", // 
           isEmailVerified: true,
           provider: "google",
           welcomeEmailSentAt: null,
