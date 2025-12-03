@@ -46,7 +46,6 @@ export default function AdminDashboard() {
   const {
     users,
     projects,
-    totalViews,
     pending,
     approved,
     rejected,
@@ -73,7 +72,6 @@ export default function AdminDashboard() {
       <div className="admin-grid">
         <StatCard label="Total Users" value={users} />
         <StatCard label="Total Projects" value={projects} />
-        <StatCard label="Total Views" value={totalViews} />
         <StatCard label="Pending Projects" value={pending} />
       </div>
 

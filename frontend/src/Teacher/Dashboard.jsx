@@ -11,7 +11,7 @@ import {
   Cell,
   Tooltip,
   Legend,
-} from "recharts";
+} from "recharts";  
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 

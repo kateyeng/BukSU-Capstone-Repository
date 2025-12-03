@@ -597,6 +597,8 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  padding: 0 1rem 1rem; /* 👈 adds left/right gap inside admin-content */
+  box-sizing: border-box;
 }
 
 .capstone-header {
@@ -607,6 +609,7 @@
   margin-bottom: 0.25rem;
 }
 
+/* title area */
 .capstone-title {
   font-size: 1.5rem;
   font-weight: 700;
@@ -618,40 +621,91 @@
   margin-top: 4px;
 }
 
+/* search + status + refresh row */
 .capstone-header-actions {
+  flex: 1;
   display: flex;
-  gap: 0.75rem;
   align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-right: 0.5rem; /* 👈 pulls All status + Refresh away from right edge */
 }
 
-.capstone-search,
-.capstone-filter {
+/* search takes the remaining width */
+.capstone-search {
+  flex: 1 1 auto;
   border-radius: 999px;
   border: 1px solid var(--border);
   padding: 8px 14px;
   font-size: 0.85rem;
   outline: none;
   background: #ffffff;
-}
-
-.capstone-search {
   min-width: 230px;
-}
-
-.capstone-filter {
-  min-width: 130px;
 }
 
 .capstone-search::placeholder {
   color: #9ca3af;
 }
 
-.capstone-search:focus,
+.capstone-search:focus {
+  border-color: var(--indigo);
+  box-shadow: 0 0 0 1px rgba(30, 64, 175, 0.12);
+}
+
+/* Right side (status + refresh grouped) */
+.capstone-header-right {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+/* Make select and refresh same size */
+.capstone-filter,
+.capstone-refresh-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+/* Status dropdown */
+.capstone-filter {
+  min-width: 130px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: #111827;
+  outline: none;
+}
+
 .capstone-filter:focus {
   border-color: var(--indigo);
   box-shadow: 0 0 0 1px rgba(30, 64, 175, 0.12);
 }
 
+/* Refresh button styled like the select */
+.capstone-refresh-btn {
+  border: 1px solid #d1d5db;
+  background: #f3f4f6;
+  color: #111827;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s ease;
+}
+
+.capstone-refresh-btn:hover:not(:disabled) {
+  background: #e5e7eb;
+  transform: translateY(-1px);
+}
+
+.capstone-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Alerts / empty / loading */
 .capstone-alert {
   padding: 10px 14px;
   border-radius: 12px;
@@ -675,6 +729,7 @@
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
 }
 
+/* Table */
 .capstone-table-wrapper {
   background: transparent;
   overflow-x: auto;
@@ -726,6 +781,7 @@
   text-align: center;
 }
 
+/* title + category cell */
 .capstone-title-cell {
   display: flex;
   flex-direction: column;
@@ -741,6 +797,7 @@
   color: var(--muted);
 }
 
+/* authors pills */
 .capstone-authors {
   display: flex;
   flex-wrap: wrap;
@@ -755,6 +812,7 @@
   font-size: 0.75rem;
 }
 
+/* status pills */
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -781,44 +839,61 @@
   color: #b91c1c;
 }
 
+/* ACTIONS — match adminUsers style */
+
 .capstone-actions {
   display: flex;
   justify-content: center;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
 }
 
 .capstone-action-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 12px;
+  background: transparent;
   border: none;
-  outline: none;
-  background: var(--indigo);
-  color: #f9fafb;
-  font-size: 0.9rem;
+  padding: 0;
+  margin: 0 2px;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  font-size: 16px; /* like .icon-btn svg size */
+  transition: transform 0.08s ease, opacity 0.1s ease;
 }
 
-.capstone-action-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.35);
-}
-
-.capstone-action-btn:active {
-  transform: translateY(0);
-  box-shadow: none;
+.capstone-action-btn:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.05);
 }
 
 .capstone-action-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: default;
-  box-shadow: none;
 }
 
+/* per-action colors (similar to edit / delete in Users) */
+.capstone-action-approve {
+  color: #16a34a; /* green */
+}
+
+.capstone-action-reject {
+  color: #b91c1c; /* red */
+}
+
+.capstone-action-edit {
+  color: var(--indigo); /* blue, like edit icon */
+}
+
+.capstone-action-view {
+  color: #111827; /* neutral dark */
+}
+
+.capstone-action-delete {
+  color: #b91c1c; /* red, like delete icon */
+}
+
+
+/* pagination */
 .capstone-pagination {
   margin-top: 12px;
   padding: 10px 18px;
@@ -884,6 +959,8 @@
 .capstone-page-indicator {
   color: #4b5563;
 }
+
+
 
 /* ========== BACKUP PAGE ========== */
 
@@ -1202,4 +1279,91 @@
   .recharts-legend-wrapper {
     font-size: 0.7rem;
   }
+}
+
+.capstone-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* Search takes remaining width */
+.capstone-search {
+  flex: 1 1 auto;
+}
+
+/* Right side (select + button) */
+.capstone-header-right {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+/* Make select and refresh same size */
+.capstone-filter,
+.capstone-refresh-btn {
+  height: 40px;              /* same height */
+  padding: 0 16px;           /* same horizontal padding */
+  border-radius: 999px;      /* pill shape */
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+/* Keep your select styling but remove extra margins if any */
+.capstone-filter {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #111827;
+}
+
+/* Refresh styled to match but as a button */
+.capstone-refresh-btn {
+  border: 1px solid #d1d5db;
+  background: #f3f4f6;
+  color: #111827;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s ease;
+}
+
+.capstone-refresh-btn:hover:not(:disabled) {
+  background: #e5e7eb;
+  transform: translateY(-1px);
+}
+
+.capstone-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/*2pl button Capstone.jsx*/
+.capstone-lock-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.capstone-lock-pill-me {
+  background: var(--indigo-soft);
+  color: var(--indigo-deep);
+}
+
+.capstone-lock-pill-other {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* Text that appears instead of buttons */
+.capstone-lock-actions {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #6b7280;
 }

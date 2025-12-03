@@ -106,6 +106,22 @@ function UseOauthNotice() {
 
 /* =================== HELPERS =================== */
 
+function UnauthorizedRedirect({ user }) {
+  const nav = useNavigate();
+
+  useEffect(() => {
+    toast.error("You are not authorized to access that page.");
+
+    if (user?.role === "admin") nav("/admin", { replace: true });
+    else if (user?.role === "teacher") nav("/teacher", { replace: true });
+    else if (user?.role === "student") nav("/student", { replace: true });
+    else nav("/", { replace: true });
+  }, [user, nav]);
+
+  // Render nothing while we redirect
+  return null;
+}
+
 const normRole = (v) => {
   const raw = String(v || "").trim().toLowerCase();
   const compact = raw.replace(/\s+/g, "");
@@ -114,19 +130,27 @@ const normRole = (v) => {
   if (raw.includes("teach") || compact === "teacher") return "teacher";
   if (raw.includes("stud") || compact === "student") return "student";
 
+  // everything else -> treated as guest
   return "guest";
 };
 
-function RequireRole({ user, roles, children }) {
-  // If not logged in → go to landing page
-  if (!user) return <Navigate to="/" replace />;
+// NEW: treat only admin/teacher/student as "privileged" app users
+const isPrivilegedUser = (user) =>
+  !!user && user.role !== "guest";
 
-  // Logged in but wrong role → also send to landing page
-  if (!roles.includes(user.role)) return <Navigate to="/" replace />;
+function RequireRole({ user, roles, children }) {
+  const location = useLocation();
+
+  const isAllowed = user && roles.includes(user.role);
+
+  if (!isAllowed) {
+    // Show an unauthorized alert once for this navigation
+    toast.error("You are not authorized to access this page.");
+    return <Navigate to="/" state={{ from: location }} replace />;
+  }
 
   return children;
 }
-
 
 /* ---------- PUBLIC (guest) wrappers ---------- */
 function PublicHomePage() {
@@ -391,7 +415,7 @@ export default function App() {
         const err = await res.json().catch(() => null);
         toast.error(
           err?.message ||
-          "Logout failed on server, but you have been signed out locally."
+            "Logout failed on server, but you have been signed out locally."
         );
       }
     } catch (e) {
@@ -417,20 +441,18 @@ export default function App() {
       <UseOauthNotice />
 
       <Routes>
-        {/* ===== PUBLIC (guest) ===== */}
+        {/* ===== PUBLIC (guest + logged-in guests) ===== */}
         <Route
           path="/"
           element={
-            user ? (
+            isPrivilegedUser(user) ? (
               <Navigate
                 to={
                   user.role === "admin"
                     ? "/admin"
                     : user.role === "teacher"
-                      ? "/teacher"
-                      : user.role === "student"
-                        ? "/student"
-                        : "/"
+                    ? "/teacher"
+                    : "/student"
                 }
                 replace
               />
@@ -443,16 +465,14 @@ export default function App() {
         <Route
           path="/dashboard"
           element={
-            user ? (
+            isPrivilegedUser(user) ? (
               <Navigate
                 to={
                   user.role === "admin"
                     ? "/admin"
                     : user.role === "teacher"
-                      ? "/teacher"
-                      : user.role === "student"
-                        ? "/student"
-                        : "/"
+                    ? "/teacher"
+                    : "/student"
                 }
                 replace
               />
@@ -461,7 +481,6 @@ export default function App() {
             )
           }
         />
-
 
         <Route
           path="/browse"
@@ -494,16 +513,14 @@ export default function App() {
         <Route
           path="/login"
           element={
-            user ? (
+            isPrivilegedUser(user) ? (
               <Navigate
                 to={
                   user.role === "admin"
                     ? "/admin"
                     : user.role === "teacher"
-                      ? "/teacher"
-                      : user.role === "student"
-                        ? "/student"
-                        : "/"
+                    ? "/teacher"
+                    : "/student"
                 }
                 replace
               />
@@ -518,9 +535,11 @@ export default function App() {
 
                   // Redirect based on normalized role
                   if (role === "admin") nav("/admin", { replace: true });
-                  else if (role === "teacher") nav("/teacher", { replace: true });
-                  else if (role === "student") nav("/student", { replace: true });
-                  else nav("/", { replace: true });
+                  else if (role === "teacher")
+                    nav("/teacher", { replace: true });
+                  else if (role === "student")
+                    nav("/student", { replace: true });
+                  else nav("/", { replace: true }); // guest -> public dashboard
                 }}
               />
             )
@@ -659,24 +678,7 @@ export default function App() {
         {/* Fallback */}
         <Route
           path="*"
-          element={
-            user ? (
-              <Navigate
-                to={
-                  user.role === "admin"
-                    ? "/admin"
-                    : user.role === "teacher"
-                      ? "/teacher"
-                      : user.role === "student"
-                        ? "/student"
-                        : "/"
-                }
-                replace
-              />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
+          element={<UnauthorizedRedirect user={user} />}
         />
 
       </Routes>

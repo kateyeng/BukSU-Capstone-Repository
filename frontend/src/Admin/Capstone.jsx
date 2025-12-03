@@ -198,12 +198,6 @@ export default function Capstone({ currentUser = null }) {
     loadThesis();
   }, []);
 
-  // poll so locks appear/disappear without manual refresh
-  useEffect(() => {
-    const id = setInterval(loadThesis, 5000);
-    return () => clearInterval(id);
-  }, []);
-
   // reset to first page when filter/search changes
   useEffect(() => {
     setPage(1);
@@ -300,79 +294,141 @@ export default function Capstone({ currentUser = null }) {
   /* ===== ACTION HANDLERS ===== */
 
   async function handleApprove(project) {
-    try {
-      setBusyId(project._id);
+  // Require a comment before approving
+  const reason = window.prompt(
+    "Approval note (required, will be included in the email):",
+    ""
+  );
 
-      // optimistic status
-      setItems((list) =>
-        list.map((p) =>
-          p._id === project._id ? { ...p, status: "approved" } : p
-        )
-      );
-
-      const res = await api.patch(
-        `/api/teacher/thesis/${project._id}/status`,
-        { status: "approved" },
-        { withCredentials: true }
-      );
-
-      const updated = res.data?.thesis || res.data;
-      if (updated?._id) {
-        setItems((list) =>
-          list.map((p) => (p._id === updated._id ? updated : p))
-        );
-      }
-
-      toast.success("Approved — email notification queued.");
-    } catch (e) {
-      console.error("[ADMIN][APPROVE][ERROR]", e);
-      toast.error("Failed to approve thesis.");
-      // reload to restore correct data
-      loadThesis();
-    } finally {
-      setBusyId(null);
-    }
+  // Cancel or empty -> do NOTHING
+  if (reason === null || reason.trim() === "") {
+    return;
   }
 
-  async function handleReject(project) {
-    const reason = window.prompt(
-      "Optional rejection reason (shown in email):",
-      ""
+  try {
+    setBusyId(project._id);
+
+    const body = {
+      status: "approved",
+      reason: reason.trim(),
+    };
+
+    const res = await api.patch(
+      `/api/teacher/thesis/${project._id}/status`,
+      body,
+      { withCredentials: true }
     );
-    try {
-      setBusyId(project._id);
 
-      // optimistic status
+    const updated = res.data?.thesis || res.data;
+    if (updated?._id) {
       setItems((list) =>
-        list.map((p) =>
-          p._id === project._id ? { ...p, status: "rejected" } : p
-        )
+        list.map((p) => (p._id === updated._id ? updated : p))
       );
-
-      const body = reason ? { status: "rejected", reason } : { status: "rejected" };
-
-      const res = await api.patch(
-        `/api/teacher/thesis/${project._id}/status`,
-        body,
-        { withCredentials: true }
-      );
-
-      const updated = res.data?.thesis || res.data;
-      if (updated?._id) {
-        setItems((list) =>
-          list.map((p) => (p._id === updated._id ? updated : p))
-        );
-      }
-
-      toast.success("Rejected — email notification queued.");
-    } catch (e) {
-      console.error("[ADMIN][REJECT][ERROR]", e);
-      toast.error("Failed to reject thesis.");
-      loadThesis();
-    } finally {
-      setBusyId(null);
     }
+
+    toast.success("Approved — email notification queued.");
+  } catch (e) {
+    console.error("[ADMIN][APPROVE][ERROR]", e);
+    toast.error("Failed to approve thesis.");
+    // reload to restore correct data
+    loadThesis();
+  } finally {
+    setBusyId(null);
   }
+}
+
+            async function handleReject(project) {
+                const reason = window.prompt(
+                    "Rejection reason (required, will be included in the email):",
+                    ""
+                );
+
+                // Cancel or empty -> do NOTHING
+                if (reason === null || reason.trim() === "") {
+                    return;
+                }
+
+                try {
+                    setBusyId(project._id);
+
+                    const body = {
+                    status: "rejected",
+                    reason: reason.trim(),
+                    };
+
+                    const res = await api.patch(
+                    `/api/teacher/thesis/${project._id}/status`,
+                    body,
+                    { withCredentials: true }
+                    );
+
+                    const updated = res.data?.thesis || res.data;
+                    if (updated?._id) {
+                    setItems((list) =>
+                        list.map((p) => (p._id === updated._id ? updated : p))
+                    );
+                    }
+
+                    toast.success("Rejected — email notification queued.");
+                } catch (e) {
+                    console.error("[ADMIN][REJECT][ERROR]", e);
+                    toast.error("Failed to reject thesis.");
+                    loadThesis(); // restore correct data from server
+                } finally {
+                    setBusyId(null);
+                }
+            }
+
+
+            async function handleReject(project) {
+                const reason = window.prompt(
+                    "Optional rejection reason (shown in email):",
+                    ""
+                );
+
+                // If user pressed Cancel, do NOTHING
+                if (reason === null) {
+                    return;
+                }
+
+                try {
+                    setBusyId(project._id);
+
+                    // optimistic status (you can remove this block if you don't want optimism)
+                    setItems((list) =>
+                    list.map((p) =>
+                        p._id === project._id ? { ...p, status: "rejected" } : p
+                    )
+                    );
+
+                    const body =
+                    reason.trim().length > 0
+                        ? { status: "rejected", reason: reason.trim() }
+                        : { status: "rejected" };
+
+                    const res = await api.patch(
+                    `/api/teacher/thesis/${project._id}/status`,
+                    body,
+                    { withCredentials: true }
+                    );
+
+                    const updated = res.data?.thesis || res.data;
+                    if (updated?._id) {
+                    setItems((list) =>
+                        list.map((p) => (p._id === updated._id ? updated : p))
+                    );
+                    }
+
+                    toast.success("Rejected — email notification queued.");
+                } catch (e) {
+                    console.error("[ADMIN][REJECT][ERROR]", e);
+                    toast.error("Failed to reject thesis.");
+                    loadThesis(); // restore correct data from server
+                } finally {
+                    setBusyId(null);
+                }
+            }
+
 
   const handleEdit = async (project) => {
     const ok = await lockForEdit(project);
@@ -428,25 +484,37 @@ export default function Capstone({ currentUser = null }) {
         </div>
 
         <div className="capstone-header-actions">
-          <input
-            type="text"
-            placeholder="Search by title or author..."
-            className="capstone-search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+            <input
+                type="text"
+                placeholder="Search by title or author..."
+                className="capstone-search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+            />
 
-          <select
-            className="capstone-filter"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="all">All status</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
-        </div>
+            {/* Right side: status + refresh aligned */}
+            <div className="capstone-header-right">
+                <select
+                className="capstone-filter"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                <option value="all">All status</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                </select>
+
+                <button
+                type="button"
+                className="capstone-refresh-btn"
+                onClick={loadThesis}
+                disabled={loading}
+                >
+                Refresh
+                </button>
+            </div>
+            </div>
       </div>
 
       {/* Error */}
@@ -479,11 +547,22 @@ export default function Capstone({ currentUser = null }) {
                 <tbody>
                   {current.map((p) => {
                     const lock = p.editLock;
-                    const isLockedByOther =
-                      lock &&
-                      lock.lockedBy &&
-                      myId &&
-                      String(lock.lockedBy) !== String(myId);
+
+                        const isLockedByOther =
+                        lock &&
+                        lock.lockedBy &&
+                        myId &&
+                        String(lock.lockedBy) !== String(myId);
+
+                        const isLockedByMe =
+                        lock &&
+                        lock.lockedBy &&
+                        myId &&
+                        String(lock.lockedBy) === String(myId) &&
+                        !lock.releasedAt;
+
+                        const isEditingThis = editing && editing._id === p._id;
+
 
                     return (
                       <tr key={p._id}>
@@ -522,74 +601,96 @@ export default function Capstone({ currentUser = null }) {
                         <td>{p.year || "—"}</td>
 
                         <td>
-                          <span
-                            className={
-                              "status-pill " +
-                              (p.status
-                                ? `status-pill-${p.status.toLowerCase()}`
-                                : "status-pill-pending")
-                            }
-                          >
-                            {p.status ? p.status.toUpperCase() : "PENDING"}
-                          </span>
-                          {isLockedByOther && (
-                            <span className="capstone-lock-pill">Editing…</span>
-                          )}
+                            <span
+                                className={
+                                "status-pill " +
+                                (p.status
+                                    ? `status-pill-${p.status.toLowerCase()}`
+                                    : "status-pill-pending")
+                                }
+                            >
+                                {p.status ? p.status.toUpperCase() : "PENDING"}
+                            </span>
+
+                            {lock && (
+                                <span
+                                className={
+                                    "capstone-lock-pill " +
+                                    (isLockedByOther
+                                    ? "capstone-lock-pill-other"
+                                    : "capstone-lock-pill-me")
+                                }
+                                >
+                                {isLockedByOther ? "Editing…" : "Editing (you)"}
+                                </span>
+                            )}
                         </td>
+
 
                         <td>{formatDate(p.createdAt)}</td>
 
-                        <td>
-                          <div className="capstone-actions">
-                            <button
-                              className="capstone-action-btn"
-                              title="Approve"
-                              onClick={() => handleApprove(p)}
-                              disabled={busyId === p._id}
-                            >
-                              ✓
-                            </button>
-                            <button
-                              className="capstone-action-btn"
-                              title="Reject"
-                              onClick={() => handleReject(p)}
-                              disabled={busyId === p._id}
-                            >
-                              ✕
-                            </button>
-                            <button
-                              className="capstone-action-btn"
-                              title="Edit"
-                              onClick={() => handleEdit(p)}
-                              disabled={busyId === p._id}
-                            >
-                              ✎
-                            </button>
-                            <button
-                              className="capstone-action-btn"
-                              title={
-                                p.fileUrl || p.pdfUrl || p.documentUrl
-                                  ? "View PDF"
-                                  : "No file"
-                              }
-                              onClick={() => handleViewPdf(p)}
-                              disabled={
-                                busyId === p._id ||
-                                !(p.fileUrl || p.pdfUrl || p.documentUrl)
-                              }
-                            >
-                              📄
-                            </button>
-                            <button
-                              className="capstone-action-btn"
-                              title="Delete"
-                              onClick={() => handleDelete(p)}
-                              disabled={busyId === p._id}
-                            >
-                              🗑
-                            </button>
-                          </div>
+                    <td>
+                            <div className="capstone-actions">
+                                {isLockedByMe || isEditingThis ? (
+                                // This row is being edited by THIS admin → hide all buttons
+                                <span className="capstone-lock-actions">Editing…</span>
+                                ) : isLockedByOther ? (
+                                // Someone else holds the lock → no actions for us
+                                <span className="capstone-lock-actions">Locked</span>
+                                ) : (
+                                <>
+                                    <button
+                                    className="capstone-action-btn capstone-action-approve"
+                                    title="Approve"
+                                    onClick={() => handleApprove(p)}
+                                    disabled={busyId === p._id}
+                                    >
+                                    ✓
+                                    </button>
+                                    <button
+                                    className="capstone-action-btn capstone-action-reject"
+                                    title="Reject"
+                                    onClick={() => handleReject(p)}
+                                    disabled={busyId === p._id}
+                                    >
+                                    ✕
+                                    </button>
+                                    <button
+                                    className="capstone-action-btn capstone-action-edit"
+                                    title="Edit"
+                                    onClick={() => handleEdit(p)}
+                                    disabled={busyId === p._id}
+                                    >
+                                    ✎
+                                    </button>
+                                    <button
+                                    className="capstone-action-btn capstone-action-view"
+                                    title={
+                                        p.fileUrl || p.pdfUrl || p.documentUrl
+                                        ? "View PDF"
+                                        : "No file"
+                                    }
+                                    onClick={() => handleViewPdf(p)}
+                                    disabled={
+                                        busyId === p._id ||
+                                        !(p.fileUrl || p.pdfUrl || p.documentUrl)
+                                    }
+                                    >
+                                    📄
+                                    </button>
+                                    <button
+                                    className="capstone-action-btn capstone-action-delete"
+                                    title="Delete"
+                                    onClick={() => handleDelete(p)}
+                                    disabled={busyId === p._id}
+                                    >
+                                    🗑
+                                    </button>
+                                </>
+                                )}
+                            </div>
                         </td>
+
                       </tr>
                     );
                   })}

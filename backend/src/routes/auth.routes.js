@@ -15,18 +15,20 @@ import {
   verifyResetCode,
 } from "../controllers/auth/passwordController.js";
 
-import { googleCallBack } from "../controllers/auth/googleController.js";
 import { protect } from "../middleware/auth.js";
 import User from "../models/user.model.js";
+
+// 🔹 SAME UTILS AS userAuthController (note the ../ instead of ../../)
+import { generateToken } from "../utils/token.js";
+import { toPublicUser } from "../utils/publicUser.js";
 
 dotenv.config();
 
 const router = express.Router();
+const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
 /* =========================================================
    GET /api/auth/me
-   - JWT-based only via `protect`
-   - This is what your React <App /> calls on load
 ========================================================= */
 
 router.get("/me", protect, (req, res) => {
@@ -51,8 +53,6 @@ router.get("/me", protect, (req, res) => {
 
 /* =========================================================
    PATCH /api/auth/me
-   - Update current user's basic profile (name / fullName)
-   - Used by Student and Teacher Profile pages
 ========================================================= */
 
 router.patch("/me", protect, async (req, res, next) => {
@@ -65,7 +65,6 @@ router.patch("/me", protect, async (req, res, next) => {
 
     const cleanedName = name.trim();
 
-    // 👇 update BOTH `name` and `fullName`
     const updated = await User.findByIdAndUpdate(
       req.user._id,
       {
@@ -80,9 +79,7 @@ router.patch("/me", protect, async (req, res, next) => {
     }
 
     const src =
-      typeof updated.toObject === "function"
-        ? updated.toObject()
-        : updated;
+      typeof updated.toObject === "function" ? updated.toObject() : updated;
 
     const {
       password,
@@ -129,13 +126,49 @@ router.get(
 );
 
 // Step 2: callback from Google
-router.get(
-  "/google/callback",
-  passport.authenticate("google", {
-    failureRedirect: `${process.env.CLIENT_URL}/login?error=oauth_failed`,
-    session: true, // we still keep session, but /me uses JWT only
-  }),
-  googleCallBack
-);
+router.get("/google/callback", (req, res, next) => {
+  // if client (Postman) sends Accept: application/json, we answer with JSON
+  const wantsJson = req.headers.accept?.includes("application/json");
+
+  // 1) Google sent us an error (?error=access_denied, etc.)
+  if (req.query.error) {
+    const msg = "Google sign-in was cancelled";
+
+    if (wantsJson) {
+      return res.status(400).json({ message: msg });
+    }
+
+    return res.redirect(
+      `${CLIENT_URL}/login?error=${encodeURIComponent(msg)}`
+    );
+  }
+
+  // 2) Run passport strategy manually so we can handle errors
+  passport.authenticate("google", (err, user, info) => {
+    if (err || !user) {
+      const msg = "Google authentication failed";
+
+      if (wantsJson) {
+        return res.status(400).json({ message: msg });
+      }
+
+      return res.redirect(
+        `${CLIENT_URL}/login?error=${encodeURIComponent(msg)}`
+      );
+    }
+
+    // 3) Success: set jwt cookie
+    generateToken(user, res);
+
+    if (wantsJson) {
+      return res.status(200).json({
+        message: "Google login successful",
+        user: toPublicUser(user),
+      });
+    }
+
+    return res.redirect(`${CLIENT_URL}/admin`);
+  })(req, res, next);
+});
 
 export default router;
