@@ -336,7 +336,7 @@ export default function TeacherThesisPage() {
               <th>Category</th>
               <th>Authors</th>
               <th>Status</th>
-              <th style={{ width: 460 }}>Actions</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -361,82 +361,74 @@ export default function TeacherThesisPage() {
                     )}
                   </td>
 
-                  <td className="actions">
-                    {locked ? (
-                      <span style={{ fontSize: 12, color: "#9ca3af" }}>
-                        Actions disabled – currently being edited
-                      </span>
-                    ) : (
-                      <>
-                        {/* Approve ✔ */}
-                        <button
-                          className="btn icon-box"
-                          style={{ background: "#111827", color: "#fff" }}
-                          onClick={() => onApprove(t)}
-                          disabled={busyId === t._id}
-                          title="Approve and notify"
-                        >
-                          ✔
-                        </button>
+                      <td>
+                        {locked ? (
+                          <span style={{ fontSize: 12, color: "#9ca3af" }}>
+                            Actions disabled – currently being edited
+                          </span>
+                        ) : (
+                          <div className="actions">
+                            {/* Approve ✔ */}
+                            <button
+                              className="btn icon-box"
+                              onClick={() => onApprove(t)}
+                              disabled={busyId === t._id}
+                              title="Approve and notify"
+                            >
+                              ✔
+                            </button>
 
-                        {/* Reject ✖ */}
-                        <button
-                          className="btn icon-box"
-                          style={{ background: "#111827", color: "#fff" }}
-                          onClick={() => onReject(t)}
-                          disabled={busyId === t._id}
-                          title="Reject and notify"
-                        >
-                          ✖
-                        </button>
+                            {/* Reject ✖ */}
+                            <button
+                              className="btn icon-box"
+                              onClick={() => onReject(t)}
+                              disabled={busyId === t._id}
+                              title="Reject and notify"
+                            >
+                              ✖
+                            </button>
 
-                        {/* Edit ✎ */}
-                        <button
-                          className="btn icon-box"
-                          style={{ background: "#111827", color: "#fff" }}
-                          onClick={() => handleOpenEdit(t)}
-                          disabled={busyId === t._id}
-                          title="Edit thesis"
-                        >
-                          ✎
-                        </button>
+                            {/* Edit ✎ */}
+                            <button
+                              className="btn icon-box"
+                              onClick={() => handleOpenEdit(t)}
+                              disabled={busyId === t._id}
+                              title="Edit thesis"
+                            >
+                              ✎
+                            </button>
 
-                        {/* View PDF 📄 */}
-                        <button
-                          className="btn icon-box"
-                          style={{ background: "#111827", color: "#fff" }}
-                          onClick={() => {
-                            const url = buildDownloadUrl(t);
-                            if (!url) {
-                              toast.error("No PDF available for this thesis.");
-                              return;
-                            }
-                            window.open(
-                              url,
-                              "_blank",
-                              "noopener,noreferrer"
-                            );
-                            setPreviewItem(t);
-                          }}
-                          disabled={busyId === t._id}
-                          title="View thesis PDF"
-                        >
-                          📄
-                        </button>
+                            {/* View PDF 📄 */}
+                            <button
+                              className="btn icon-box"
+                              onClick={() => {
+                                const url = buildDownloadUrl(t);
+                                if (!url) {
+                                  toast.error("No PDF available for this thesis.");
+                                  return;
+                                }
+                                window.open(url, "_blank", "noopener,noreferrer");
+                                setPreviewItem(t);
+                              }}
+                              disabled={busyId === t._id}
+                              title="View thesis PDF"
+                            >
+                              📄
+                            </button>
 
-                        {/* Delete 🗑 */}
-                        <button
-                          className="btn icon-box"
-                          style={{ background: "#b91c1c", color: "#fff" }}
-                          onClick={() => onDelete(t)}
-                          disabled={busyId === t._id}
-                          title="Delete thesis"
-                        >
-                          🗑
-                        </button>
-                      </>
-                    )}
-                  </td>
+                            {/* Delete 🗑 */}
+                            <button
+                              className="btn icon-box danger"
+                              onClick={() => onDelete(t)}
+                              disabled={busyId === t._id}
+                              title="Delete thesis"
+                            >
+                              🗑
+                            </button>
+                          </div>
+                        )}
+                      </td>
+
                 </tr>
               );
             })}
