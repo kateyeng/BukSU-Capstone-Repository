@@ -1,0 +1,204 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "../api/axios.js";
+import toast from "react-hot-toast";
+
+const PASSWORD_HINT =
+  "Use at least 8 characters with 1 uppercase letter, 1 number, and 1 symbol.";
+
+function isStrongPassword(value) {
+  return (
+    value.length >= 8 &&
+    /[A-Z]/.test(value) &&
+    /\d/.test(value) &&
+    /[^A-Za-z0-9]/.test(value)
+  );
+}
+
+export default function SignUpPage() {
+  const navigate = useNavigate();
+
+  const handleSwitchToLogin = () => {
+    navigate("/login");
+  };
+
+  return (
+    <div className="auth-page">
+      <header className="header">
+        <h1>BukSU CoT Thesis Realm</h1>
+        <p>Create your academic research account</p>
+      </header>
+
+      <div className="container">
+        <div className="tabs">
+          <button className="tab active" type="button">
+            Sign Up
+          </button>
+        </div>
+
+        <SignUpForm onSwitch={handleSwitchToLogin} />
+      </div>
+
+      <button
+        type="button"
+        className="link back-home"
+        onClick={() => navigate("/")}
+      >
+        ← Back to Home
+      </button>
+    </div>
+  );
+}
+
+/* eslint-disable react/prop-types */
+function SignUpForm({ onSwitch }) {
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirm: "",
+  });
+
+  const handleChange = (e) =>
+    setForm({ ...form, [e.target.name]: e.target.value });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (form.password !== form.confirm) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    if (!isStrongPassword(form.password)) {
+      toast.error(PASSWORD_HINT);
+      return;
+    }
+
+    try {
+      const registerPromise = axios.post("/api/auth/registerUser", {
+        fullName: form.name,
+        email: form.email,
+        password: form.password,
+      });
+
+      await toast.promise(
+        registerPromise,
+        {
+          loading: "Creating your account...",
+          success: (res) =>
+            res.data?.message || "Registered successfully. Redirecting...",
+          error: (err) =>
+            err?.response?.data?.message ||
+            "Failed to register. Try again later.",
+        },
+        { duration: 3000 }
+      );
+
+      // optional cleanup
+      setForm({ name: "", email: "", password: "", confirm: "" });
+
+      // after signup, go to login
+      onSwitch?.();
+    } catch (error) {
+      console.error("❌ Registration failed:", error?.response?.data || error);
+    }
+  };
+
+  return (
+    <form className="form" onSubmit={handleSubmit}>
+      <div>
+        <label>Full Name</label>
+        <div className="input-box has-icon">
+          <span className="input-icon">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2.2c-4.2 0-7.6 2-7.6 4.5V21h15.2v-2.3c0-2.5-3.4-4.5-7.6-4.5z" />
+            </svg>
+          </span>
+          <input
+            name="name"
+            placeholder="Juan Dela Cruz"
+            value={form.name}
+            onChange={handleChange}
+            required
+          />
+        </div>
+      </div>
+
+      <div>
+        <label>Email</label>
+        <div className="input-box has-icon">
+          <span className="input-icon">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M1.5 7.5v9A1.5 1.5 0 0 0 3 18h18a1.5 1.5 0 0 0 1.5-1.5v-9L12 12 1.5 7.5z" />
+              <path d="M22.5 6V5.5A1.5 1.5 0 0 0 21 4H3A1.5 1.5 0 0 0 1.5 5.5V6L12 10.5 22.5 6z" />
+            </svg>
+          </span>
+          <input
+            type="email"
+            name="email"
+            placeholder="your.email@buksu.edu.ph"
+            value={form.email}
+            onChange={handleChange}
+            required
+          />
+        </div>
+      </div>
+
+      <div>
+        <label>Password</label>
+        <div className="input-box has-icon">
+          <span className="input-icon">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M7.5 10.5V7a4.5 4.5 0 0 1 9 0v3.5h-9z" />
+              <path d="M5 10.5A1.5 1.5 0 0 0 3.5 12v7A1.5 1.5 0 0 0 5 20.5h14A1.5 1.5 0 0 0 20.5 19v-7A1.5 1.5 0 0 0 19 10.5H5z" />
+            </svg>
+          </span>
+          <input
+            type="password"
+            name="password"
+            placeholder="Create a strong password"
+            value={form.password}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        <small>{PASSWORD_HINT}</small>
+      </div>
+
+      <div>
+        <label>Confirm Password</label>
+        <div className="input-box has-icon">
+          <span className="input-icon">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M7.5 10.5V7a4.5 4.5 0 0 1 9 0v3.5h-9z" />
+              <path d="M5 10.5A1.5 1.5 0 0 0 3.5 12v7A1.5 1.5 0 0 0 5 20.5h14A1.5 1.5 0 0 0 20.5 19v-7A1.5 1.5 0 0 0 19 10.5H5z" />
+            </svg>
+          </span>
+          <input
+            type="password"
+            name="confirm"
+            placeholder="Confirm your password"
+            value={form.confirm}
+            onChange={handleChange}
+            required
+          />
+        </div>
+      </div>
+
+      <button className="btn-primary" type="submit">
+        Create Account
+      </button>
+
+      <p className="text-center">
+        Already have an account?{" "}
+        <button
+          type="button"
+          onClick={onSwitch}
+          style={{ background: "none", color: "#1e40af" }}
+        >
+          Login
+        </button>
+      </p>
+    </form>
+  );
+}
