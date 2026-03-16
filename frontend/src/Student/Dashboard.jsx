@@ -12,9 +12,9 @@ export default function StudentDashboard({ onLogout, onNavigate = () => {} }) {
   const bookmarksCount = (bookmarks.data || []).length;
 
   const [stats, setStats] = useState({
-    total: null,
-    latestUploads: null,
-    pendingUploads: null,
+    total: 0,
+    latestUploads: 0,
+    pendingUploads: 0,
   });
   const [loadingStats, setLoadingStats] = useState(false);
   const [statsErr, setStatsErr] = useState("");
@@ -23,23 +23,46 @@ export default function StudentDashboard({ onLogout, onNavigate = () => {} }) {
     let cancel = false;
     const ac = new AbortController();
 
-    (async () => {
+    async function loadStats() {
       try {
         setLoadingStats(true);
         setStatsErr("");
-        const res = await api.get("/api/publicProjects/stats?mine=1", {
-          signal: ac.signal,
-        });
-        if (!cancel) setStats(res.data);
+
+        const [publicStatsRes, myProjectsRes] = await Promise.all([
+          api.get("/api/publicProjects/stats", { signal: ac.signal }),
+          api.get("/api/student/projects/mine", { signal: ac.signal }),
+        ]);
+
+        const publicStats = publicStatsRes?.data || {};
+        const myProjects = myProjectsRes?.data?.projects || [];
+
+        const pendingUploads = myProjects.filter(
+          (p) => String(p.status || "").toLowerCase() === "pending"
+        ).length;
+
+        if (!cancel) {
+          setStats({
+            total: Number(publicStats.total) || 0,
+            latestUploads: Number(publicStats.latestUploads) || 0,
+            pendingUploads: Number(pendingUploads) || 0,
+          });
+        }
       } catch (e) {
         if (!cancel) {
-          console.error("[Student] stats error:", e);
+          console.error("[Student] stats error:", e?.response?.data || e);
           setStatsErr("Couldn’t load stats.");
+          setStats({
+            total: 0,
+            latestUploads: 0,
+            pendingUploads: 0,
+          });
         }
       } finally {
         if (!cancel) setLoadingStats(false);
       }
-    })();
+    }
+
+    loadStats();
 
     return () => {
       cancel = true;
@@ -113,16 +136,21 @@ export default function StudentDashboard({ onLogout, onNavigate = () => {} }) {
             <div className="stat-left">
               <div className="stat-header">{s.label}</div>
               <div className="stat-value">
-                {s.value == null ? "—" : Number(s.value).toLocaleString()}
+                {s.value == null
+                  ? loadingStats
+                    ? "—"
+                    : "0"
+                  : Number(s.value).toLocaleString()}
               </div>
               <div className="stat-sub">
                 {s.value == null && !statsErr
                   ? loadingStats
                     ? "Loading..."
-                    : "—"
+                    : s.sub
                   : s.sub}
               </div>
             </div>
+
             <div className="stat-icon-box" aria-hidden>
               {s.icon === "book" && (
                 <svg className="stat-icon" viewBox="0 0 24 24">

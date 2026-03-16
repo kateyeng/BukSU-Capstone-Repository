@@ -2291,3 +2291,24 @@ form button.link {
   color: #374151;
   font-weight: 600;
 }
+
+/* Browse cards: keep buttons aligned at the bottom */
+.browse-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 340px;
+}
+
+.browse-excerpt {
+  flex-grow: 1;
+  margin-bottom: 16px;
+}
+
+.browse-actions {
+  margin-top: auto;
+}
+
+.browse-actions .btn-block {
+  width: 100%;
+}

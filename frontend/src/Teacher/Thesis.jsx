@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import EditThesisModal from "./EditThesisModal.jsx";
 import Sidebar from "./Sidebar.jsx";
+import CommentSection from "./CommentSection.jsx";
 import "./teacher.css";
 import toast from "react-hot-toast";
 import usePermissions from "../hooks/usePermissions";
+import api from "../api/axios.js";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 export default function TeacherThesisPage() {
   const { can } = usePermissions();
+  const [currentUser, setCurrentUser] = useState(null);
 
   const [items, setItems] = useState([]);
   const [q, setQ] = useState("");
@@ -19,6 +22,18 @@ export default function TeacherThesisPage() {
   const [busyId, setBusyId] = useState("");
   const [previewItem, setPreviewItem] = useState(null);
   const [confirmData, setConfirmData] = useState(null);
+
+  // Fetch current user on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.get("/api/auth/me");
+        if (res.data) setCurrentUser(res.data);
+      } catch (e) {
+        console.error("[TEACHER][FETCH_USER][ERROR]", e);
+      }
+    })();
+  }, []);
 
   function buildDownloadUrl(thesis) {
     if (!thesis?._id) return null;
@@ -660,17 +675,34 @@ export default function TeacherThesisPage() {
               </button>
             </div>
 
-            <div style={{ flex: 1 }}>
-              <iframe
-                title="Thesis PDF (Teacher Preview)"
-                src={`${previewUrl}#toolbar=1`}
+            <div style={{ flex: 1, display: "flex", gap: 0 }}>
+              <div style={{ flex: 2, minWidth: 0 }}>
+                <iframe
+                  title="Thesis PDF (Teacher Preview)"
+                  src={`${previewUrl}#toolbar=1`}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    border: "none",
+                    background: "#333",
+                  }}
+                />
+              </div>
+              <div
                 style={{
-                  width: "100%",
-                  height: "100%",
-                  border: "none",
-                  background: "#333",
+                  flex: 1,
+                  minWidth: 0,
+                  background: "#fff",
+                  borderLeft: "1px solid #e5e7eb",
+                  overflowY: "auto",
+                  padding: "16px",
                 }}
-              />
+              >
+                <CommentSection
+                  projectId={previewItem?._id}
+                  currentUser={currentUser}
+                />
+              </div>
             </div>
           </div>
         )}
