@@ -5,7 +5,6 @@ import fs from "fs";
 import multer from "multer";
 import Project from "../models/project.model.js";
 import cloudinary from "../config/cloudinary.js";
-import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -32,7 +31,7 @@ const fileFilter = (_req, file, cb) =>
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  limits: { fileSize: 50 * 1024 * 1024 },
 });
 
 /* ============== Helpers ============== */
@@ -50,8 +49,6 @@ function getOwnerIdFromDoc(doc) {
 }
 
 /* ============== CREATE (PUBLIC UPLOAD ENDPOINT) ============== */
-// NOTE: you are also creating projects via project.controller.js for
-// student/teacher upload; this route is kept for your older public upload flow.
 router.post("/", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
@@ -65,14 +62,12 @@ router.post("/", upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // 1) Upload the file to Cloudinary (raw PDF)
     const uploadResult = await cloudinary.uploader.upload(req.file.path, {
       folder: "buksu-thesis",
       resource_type: "raw",
     });
 
-    // Delete local temp file
-    fs.unlink(req.file.path, () => { });
+    fs.unlink(req.file.path, () => {});
 
     const ownerId = getRequesterId(req);
 
@@ -81,7 +76,6 @@ router.post("/", upload.single("file"), async (req, res) => {
       .map((s) => s.trim().toLowerCase())
       .filter(Boolean);
 
-    // 2) Save document in DB
     const doc = await Project.create({
       title: String(title).trim(),
       category: String(department).trim(),
@@ -94,14 +88,12 @@ router.post("/", upload.single("file"), async (req, res) => {
       adviser: adviser ? String(adviser).trim() : undefined,
       ...(ownerId ? { owner: ownerId } : {}),
 
-      // file metadata
       filePath: undefined,
       mimeType: req.file.mimetype,
       fileSize: req.file.size,
       fileUrl: uploadResult.secure_url,
       cloudinaryPublicId: uploadResult.public_id,
 
-      // tagging + status
       tags,
       status: "pending",
     });
@@ -127,7 +119,6 @@ router.get("/", async (req, res) => {
       mine,
     } = req.query;
 
-    // case-insensitive status, default = "approved"
     let statusFilter;
     if (status) {
       statusFilter = new RegExp(`^${String(status).trim()}$`, "i");
@@ -142,13 +133,11 @@ router.get("/", async (req, res) => {
     if (category) filter.category = category;
     if (year) filter.year = Number(year);
 
-    // If ?mine=1 and we know the owner, filter by owner
     const ownerId = getRequesterId(req);
     if (mine === "1" && ownerId) {
       filter.owner = ownerId;
     }
 
-    // Optional backend search (title + abstract + authors + tags)
     if (q && q.trim()) {
       const regex = new RegExp(q.trim(), "i");
       filter.$or = [
@@ -166,7 +155,6 @@ router.get("/", async (req, res) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit))
-        // IMPORTANT: include fields we search on in the frontend
         .select(
           "title category year authors abstract tags keywords views status fileUrl filePath"
         )
@@ -186,35 +174,26 @@ router.get("/", async (req, res) => {
   }
 });
 
-/* ============== STATS (approved-only by default) ============== */
-router.get("/stats", protect, async (req, res) => {
+/* ============== STATS (PUBLIC) ============== */
+// Used by: GET /api/publicProjects/stats
+router.get("/stats", async (req, res) => {
   try {
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-    const mine = req.query.mine === "1";
-    const approvedOnly = req.query.approvedOnly !== "0";
-
-    // Use req.user._id from protect middleware
-    const ownerId = mine && req.user ? req.user._id : null;
-
-    const ownerFilter = ownerId ? { owner: ownerId } : {};
-    const approvedFilter = approvedOnly
-      ? { status: /^approved$/i, isPublished: { $ne: false } }
-      : {};
-
-    const base = { ...ownerFilter, ...approvedFilter };
+    const approvedFilter = {
+      status: /^approved$/i,
+      isPublished: { $ne: false },
+    };
 
     const [total, latestUploads] = await Promise.all([
-      Project.countDocuments(base),
-      Project.countDocuments({ ...base, createdAt: { $gte: weekAgo } }),
+      Project.countDocuments(approvedFilter),
+      Project.countDocuments({
+        ...approvedFilter,
+        createdAt: { $gte: weekAgo },
+      }),
     ]);
 
-    const pendingUploads =
-      ownerId
-        ? await Project.countDocuments({ owner: ownerId, status: "pending" })
-        : 0;
-
-    res.json({ total, latestUploads, pendingUploads });
+    res.json({ total, latestUploads });
   } catch (e) {
     console.error("Stats route error:", e);
     res.status(500).json({ error: "Failed to load stats" });
@@ -247,17 +226,14 @@ router.get("/:id/download", async (req, res) => {
       return res.status(404).json({ message: "File not found" });
     }
 
-    // Prefer Cloudinary URL
     if (p.fileUrl) {
       return res.redirect(p.fileUrl);
     }
 
-    // Some legacy records might store a direct URL
     if (p.filePath && p.filePath.startsWith("http")) {
       return res.redirect(p.filePath);
     }
 
-    // Legacy local filePath
     if (p.filePath) {
       const abs = toAbsolute(p.filePath);
       return res.download(abs);

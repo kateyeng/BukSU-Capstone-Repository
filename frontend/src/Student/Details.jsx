@@ -13,6 +13,8 @@ export default function Details({ id, onLogout, onNavigate }) {
   const [proj, setProj] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
 
   useEffect(() => {
     let abort = false;
@@ -63,6 +65,32 @@ export default function Details({ id, onLogout, onNavigate }) {
       clearTimeout(timeoutId);
     };
   }, [id]);
+
+  // Fetch comments for the project
+  useEffect(() => {
+    if (!proj?._id) return;
+
+    let abort = false;
+    setCommentsLoading(true);
+
+    (async () => {
+      try {
+        const res = await api.get(`/api/comments?projectId=${proj._id}`);
+        if (!abort) {
+          setComments(res.data?.comments || []);
+        }
+      } catch (e) {
+        console.error("[Student Details] Comments error:", e);
+        if (!abort) setComments([]);
+      } finally {
+        if (!abort) setCommentsLoading(false);
+      }
+    })();
+
+    return () => {
+      abort = true;
+    };
+  }, [proj?._id]);
 
   const fileUrl =
     proj?.fileUrl ||
@@ -182,6 +210,78 @@ export default function Details({ id, onLogout, onNavigate }) {
                 </button>
 
                 <BookmarkButton projectId={proj._id} />
+              </div>
+
+              {/* Comments Section */}
+              <div
+                style={{
+                  marginTop: 24,
+                  paddingTop: 20,
+                  borderTop: "1px solid #e5e7eb",
+                }}
+              >
+                <h2 className="subhead">Adviser Feedback</h2>
+                {commentsLoading ? (
+                  <p style={{ fontSize: 14, color: "#666" }}>Loading feedback…</p>
+                ) : comments.length === 0 ? (
+                  <p style={{ fontSize: 14, color: "#999" }}>
+                    No feedback yet.
+                  </p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
+                    {comments.map((c) => (
+                      <div
+                        key={c._id}
+                        style={{
+                          background: c.status === "resolved" ? "#f0fdf4" : "#f9fafb",
+                          border: `1px solid ${c.status === "resolved" ? "#dcfce7" : "#e5e7eb"}`,
+                          borderRadius: 6,
+                          padding: 12,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "start",
+                            marginBottom: 6,
+                          }}
+                        >
+                          <div>
+                            <strong style={{ fontSize: 12, color: "#111" }}>
+                              {c.authorName}
+                            </strong>
+                            {c.page && (
+                              <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
+                                Page {c.page}
+                                {c.section && ` • ${c.section}`}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 11, color: "#9ca3af" }}>
+                            {new Date(c.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <p
+                          style={{
+                            fontSize: 12,
+                            lineHeight: 1.5,
+                            color: "#374151",
+                            whiteSpace: "pre-wrap",
+                            margin: 0,
+                          }}
+                        >
+                          {c.content}
+                        </p>
+                        {c.status === "resolved" && (
+                          <div style={{ fontSize: 11, color: "#059669", marginTop: 6 }}>
+                            ✓ Resolved
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
 

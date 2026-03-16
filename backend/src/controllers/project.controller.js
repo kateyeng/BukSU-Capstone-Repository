@@ -612,6 +612,36 @@ export const getMyProjects = async (req, res) => {
   }
 };
 
+/* ---------- PUBLIC PROJECT STATS ---------- */
+export const getPublicProjectStats = async (req, res) => {
+  try {
+    const now = new Date();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(now.getDate() - 7);
+
+    const approvedQuery = { status: "approved" };
+
+    const total = await Project.countDocuments(approvedQuery);
+
+    const latestUploads = await Project.countDocuments({
+      ...approvedQuery,
+      createdAt: { $gte: sevenDaysAgo },
+    });
+
+    return res.json({
+      total,
+      latestUploads,
+    });
+  } catch (err) {
+    console.error("Get public project stats error:", err);
+    return res.status(500).json({
+      message: "Failed to load public stats",
+      error: err.message || "Unknown error",
+    });
+  }
+};
+
+
 /* ---------- 2PL LOCKING ---------- */
 const LOCK_TTL_MINUTES = 10;
 

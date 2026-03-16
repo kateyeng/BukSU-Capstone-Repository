@@ -1,4 +1,3 @@
-// src/Students/Browse.jsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../index.css";
@@ -30,6 +29,7 @@ export default function Browse({ onNavigate }) {
     async function loadProjects() {
       setLoading(true);
       setError("");
+
       try {
         const params = new URLSearchParams();
         params.append("status", "approved");
@@ -37,22 +37,23 @@ export default function Browse({ onNavigate }) {
         if (year !== "All Years") params.append("year", year);
         if (dept !== "All Departments") params.append("category", dept);
 
-        const res = await fetch(
-          `${API}/api/publicProjects?${params.toString()}`,
-          {
-            credentials: "include",
-            signal: controller.signal,
-          }
-        );
+        const res = await fetch(`${API}/api/publicProjects?${params.toString()}`, {
+          signal: controller.signal,
+        });
+
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
         const data = await res.json();
+
         const items = (data.items || []).filter(
-          (p) => (p.status || "pending") === "approved"
+          (p) => String(p.status || "").toLowerCase() === "approved"
         );
+
         setProjects(items);
       } catch (err) {
-        if (err.name !== "AbortError")
+        if (err.name !== "AbortError") {
           setError(err.message || "Failed to load projects");
+        }
       } finally {
         setLoading(false);
       }
@@ -89,10 +90,7 @@ export default function Browse({ onNavigate }) {
 
           <div className="filters-row">
             <div className="select-pill">
-              <select
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-              >
+              <select value={year} onChange={(e) => setYear(e.target.value)}>
                 {years.map((y) => (
                   <option key={y} value={y}>
                     {y}
@@ -105,10 +103,7 @@ export default function Browse({ onNavigate }) {
             </div>
 
             <div className="select-pill">
-              <select
-                value={dept}
-                onChange={(e) => setDept(e.target.value)}
-              >
+              <select value={dept} onChange={(e) => setDept(e.target.value)}>
                 {departments.map((d) => (
                   <option key={d} value={d}>
                     {d}
@@ -126,8 +121,9 @@ export default function Browse({ onNavigate }) {
           {loading
             ? "Loading projects..."
             : error
-              ? `Error: ${error}`
-              : `Showing ${projects.length} approved project${projects.length !== 1 ? "s" : ""
+            ? `Error: ${error}`
+            : `Showing ${projects.length} approved project${
+                projects.length !== 1 ? "s" : ""
               }`}
         </div>
 
@@ -139,18 +135,14 @@ export default function Browse({ onNavigate }) {
           )}
 
           {projects.map((p) => (
-            <article key={p._id} className="project-card">
+            <article key={p._id} className="project-card browse-card">
               <span className="badge blue">{p.category}</span>
+
               <h3 className="project-title">{p.title}</h3>
 
               <div className="meta">
                 <div className="meta-item">
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    aria-hidden
-                  >
+                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
                     <path
                       fill="currentColor"
                       d="M12 12a5 5 0 1 0-5-5a5 5 0 0 0 5 5m0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5"
@@ -162,13 +154,9 @@ export default function Browse({ onNavigate }) {
                       : p.authors}
                   </span>
                 </div>
+
                 <div className="meta-item">
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    aria-hidden
-                  >
+                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
                     <path
                       fill="currentColor"
                       d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2M5 9h14v10H5z"
@@ -178,22 +166,17 @@ export default function Browse({ onNavigate }) {
                 </div>
               </div>
 
-              <p className="project-excerpt">
+              <p className="project-excerpt browse-excerpt">
                 {p.abstract?.slice(0, 180)}
                 {p.abstract?.length > 180 ? "..." : ""}
               </p>
 
-              <div className="card-actions">
+              <div className="card-actions browse-actions">
                 <button
                   className="btn-card btn-block"
                   onClick={() => openDetails(p._id)}
                 >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    aria-hidden
-                  >
+                  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
                     <path
                       fill="currentColor"
                       d="M3 6h18v2H3zm0 5h18v2H3zm0 5h12v2H3z"

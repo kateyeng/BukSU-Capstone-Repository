@@ -1,4 +1,3 @@
-// src/Students/Dashboard.jsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./../index.css";
@@ -9,10 +8,10 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 export default function Dashboard({
   onLogin,
   onLogout,
-  onNavigate = () => { },
+  onNavigate = () => {},
 }) {
   const [featured, setFeatured] = useState([]);
-  const [stats, setStats] = useState({ total: null, latestUploads: null });
+  const [stats, setStats] = useState({ total: 0, latestUploads: 0 });
   const [loading, setLoading] = useState(false);
   const [projErr, setProjErr] = useState("");
   const [statsErr, setStatsErr] = useState("");
@@ -31,11 +30,16 @@ export default function Dashboard({
       try {
         const res = await fetch(
           `${API}/api/publicProjects?limit=6&status=approved`,
-          { credentials: "include", signal: ac.signal }
+          { signal: ac.signal }
         );
+
         if (!res.ok) throw new Error(`Projects HTTP ${res.status}`);
+
         const data = await res.json();
-        if (!cancel) setFeatured(data.items?.slice(0, 3) || []);
+
+        if (!cancel) {
+          setFeatured(Array.isArray(data.items) ? data.items.slice(0, 3) : []);
+        }
       } catch (e) {
         if (!cancel) {
           setProjErr("Couldn’t load featured projects.");
@@ -45,16 +49,23 @@ export default function Dashboard({
 
       try {
         const sRes = await fetch(`${API}/api/publicProjects/stats`, {
-          credentials: "include",
           signal: ac.signal,
         });
+
         if (!sRes.ok) throw new Error(`Stats HTTP ${sRes.status}`);
+
         const s = await sRes.json();
-        if (!cancel) setStats(s);
+
+        if (!cancel) {
+          setStats({
+            total: Number(s.total) || 0,
+            latestUploads: Number(s.latestUploads) || 0,
+          });
+        }
       } catch (e) {
         if (!cancel) {
           setStatsErr("Couldn’t load stats.");
-          console.error("[Student] stats error:", e);
+          console.error("[Public] stats error:", e);
         }
       } finally {
         if (!cancel) setLoading(false);
@@ -83,10 +94,8 @@ export default function Dashboard({
 
   return (
     <div className="dashboard">
-      {/* Shared navbar */}
       <PublicNavbar authClick={authClick} authLabel={authLabel} />
 
-      {/* Hero */}
       <main className="hero">
         <div className="hero-content">
           <h1>BukSU CoT Thesis Realm</h1>
@@ -103,7 +112,6 @@ export default function Dashboard({
         </div>
       </main>
 
-      {/* Stats */}
       <section className="stats">
         {[
           {
@@ -123,16 +131,13 @@ export default function Dashboard({
             <div className="stat-left">
               <div className="stat-header">{s.label}</div>
               <div className="stat-value">
-                {s.value == null ? "—" : Number(s.value).toLocaleString()}
+                {loading && !statsErr ? "—" : Number(s.value).toLocaleString()}
               </div>
               <div className="stat-sub">
-                {s.value == null && !statsErr
-                  ? loading
-                    ? "Loading..."
-                    : "—"
-                  : s.sub}
+                {loading && !statsErr ? "Loading..." : s.sub}
               </div>
             </div>
+
             <div className="stat-icon-box" aria-hidden>
               {s.icon === "book" && (
                 <svg className="stat-icon" viewBox="0 0 24 24">
@@ -155,7 +160,6 @@ export default function Dashboard({
         ))}
       </section>
 
-      {/* Featured */}
       <section className="featured">
         <h2 className="featured-title text-center">Featured Projects</h2>
         <p className="featured-subtitle text-center">
@@ -163,9 +167,8 @@ export default function Dashboard({
           and faculty members.
         </p>
 
-        {loading && (
-          <p className="text-center">Loading featured projects...</p>
-        )}
+        {loading && <p className="text-center">Loading featured projects...</p>}
+
         {projErr && (
           <p className="text-center" style={{ color: "#c65" }}>
             {projErr}
@@ -197,6 +200,7 @@ export default function Dashboard({
                       : p.authors}
                   </span>
                 </div>
+
                 <div className="meta-item" title="Year">
                   <svg
                     width="18"
@@ -241,12 +245,7 @@ export default function Dashboard({
         <div className="view-all-wrap">
           <button className="btn-outline" onClick={goBrowse}>
             View All Projects
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              aria-hidden
-            >
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
               <path fill="currentColor" d="M10 17l5-5l-5-5v10z" />
             </svg>
           </button>
@@ -254,9 +253,7 @@ export default function Dashboard({
       </section>
 
       <footer className="footer">
-        <small>
-          © {new Date().getFullYear()} BukSU CoT — Thesis Realm
-        </small>
+        <small>© {new Date().getFullYear()} BukSU CoT — Thesis Realm</small>
       </footer>
     </div>
   );
