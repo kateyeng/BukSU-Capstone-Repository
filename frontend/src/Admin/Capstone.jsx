@@ -1,25 +1,28 @@
 // src/Admin/Capstone.jsx
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../api/axios.js";
 import toast from "react-hot-toast";
 import EditThesisModal from "../Teacher/EditThesisModal.jsx"; // adjust path if needed
 
 // ===== helpers to render adviser & department safely =====
+function getActiveEditLock(project) {
+  const lock = project?.editLock;
+  if (!lock?.lockedBy) return null;
+  if (lock.releasedAt) return null;
+  if (!lock.expiresAt) return null;
+  if (new Date(lock.expiresAt) < new Date()) return null;
+  return lock;
+}
+
 function renderAdviser(project) {
   // 1) primary sources: adviser fields
   let adviser = project.adviser ?? project.adviserName;
 
   // 2) fallback: whoever is currently editing (teacher/admin)
-  if (!adviser && project.editLock && project.editLock.lockedByName) {
-    const lock = project.editLock;
-
-    // if lock is still active (no releasedAt and not expired if expiresAt exists)
-    const now = new Date();
-    const isExpired =
-      lock.expiresAt && new Date(lock.expiresAt).getTime() < now.getTime();
-    if (!lock.releasedAt && !isExpired) {
-      adviser = lock.lockedByName;
-    }
+  const lock = getActiveEditLock(project);
+  if (!adviser && lock?.lockedByName) {
+    adviser = lock.lockedByName;
   }
 
   if (!adviser) return "—";
@@ -125,6 +128,7 @@ function confirmDeleteToast(message) {
 }
 
 export default function Capstone({ currentUser = null }) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -142,6 +146,8 @@ export default function Capstone({ currentUser = null }) {
   // admin identity (for lock comparison + UI pills)
   const [me, setMe] = useState(currentUser);
   const myId = me?._id || currentUser?._id || null;
+  const adviserFilter = searchParams.get("adviser") || "";
+  const ownerFilter = searchParams.get("owner") || "";
 
   /* ===== LOAD CURRENT ADMIN (if not passed as prop) ===== */
   useEffect(() => {
@@ -207,23 +213,33 @@ export default function Capstone({ currentUser = null }) {
     const term = search.trim().toLowerCase();
 
     return items.filter((p) => {
+      const adviserId =
+        p?.adviser?._id || p?.adviser || p?.adviserId || "";
+      const ownerId = p?.owner?._id || p?.owner || "";
+
+      const matchAdviser = !adviserFilter || String(adviserId) === adviserFilter;
+      const matchOwner = !ownerFilter || String(ownerId) === ownerFilter;
       const matchStatus =
         statusFilter === "all" ||
         (p.status || "").toLowerCase() === statusFilter;
 
-      if (!term) return matchStatus;
+      if (!term) return matchStatus && matchAdviser && matchOwner;
 
       const authorsText = Array.isArray(p.authors)
         ? p.authors.join(" ")
         : p.authors || "";
 
-      const haystack = `${p.title || ""} ${p.category || ""} ${authorsText}`
+      const ownerText =
+        p?.owner?.fullName || p?.owner?.email || "";
+      const adviserText = renderAdviser(p);
+
+      const haystack = `${p.title || ""} ${p.category || ""} ${authorsText} ${ownerText} ${adviserText}`
         .toLowerCase()
         .trim();
 
-      return matchStatus && haystack.includes(term);
+      return matchStatus && matchAdviser && matchOwner && haystack.includes(term);
     });
-  }, [items, statusFilter, search]);
+  }, [adviserFilter, items, ownerFilter, statusFilter, search]);
 
   // pagination slices
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -386,11 +402,6 @@ export default function Capstone({ currentUser = null }) {
     }
   };
 
-  const handleViewMeta = (project) => {
-    console.log("view meta", project._id);
-    // optional extra modal
-  };
-
   const handleViewPdf = (project) => {
     const url = project.fileUrl || project.pdfUrl || project.documentUrl;
     if (!url) return;
@@ -428,7 +439,7 @@ export default function Capstone({ currentUser = null }) {
         <div>
           <h2 className="capstone-title">Capstone / Thesis</h2>
           <p className="capstone-subtitle">
-            View all uploaded thesis and capstone projects across departments.
+            View and manage uploaded thesis and capstone projects across departments.
           </p>
         </div>
 
@@ -466,6 +477,44 @@ export default function Capstone({ currentUser = null }) {
             </div>
       </div>
 
+      {(adviserFilter || ownerFilter) && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            marginBottom: 14,
+            padding: "10px 14px",
+            borderRadius: 12,
+            background: "#eff6ff",
+            color: "#1d4ed8",
+            fontSize: 13,
+          }}
+        >
+          <span>
+            {adviserFilter
+              ? "Teacher filter is active. Showing only documents for the selected adviser."
+              : "Student filter is active. Showing only documents for the selected student."}
+          </span>
+          <button
+            type="button"
+            onClick={() => setSearchParams({})}
+            style={{
+              border: "none",
+              background: "#1d4ed8",
+              color: "#fff",
+              borderRadius: 999,
+              padding: "6px 12px",
+              cursor: "pointer",
+              fontSize: 12,
+            }}
+          >
+            Clear Filter
+          </button>
+        </div>
+      )}
+
       {/* Error */}
       {err && <div className="capstone-alert capstone-alert-error">{err}</div>}
 
@@ -495,7 +544,7 @@ export default function Capstone({ currentUser = null }) {
                 </thead>
                 <tbody>
                   {current.map((p) => {
-                    const lock = p.editLock;
+                    const lock = getActiveEditLock(p);
 
                         const isLockedByOther =
                         lock &&

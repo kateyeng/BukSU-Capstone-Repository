@@ -1,5 +1,8 @@
 import Project from "../models/project.model.js";
 import DeletedProjectBackup from "../models/deletedProjectBackup.model.js";
+import DocumentVersion from "../models/documentVersion.model.js";
+import Comment from "../models/comment.model.js";
+import UserActivity from "../models/userActivity.model.js";
 import cloudinary from "../config/cloudinary.js";
 
 import { google } from "googleapis";
@@ -109,6 +112,114 @@ async function getAdviserUser(adviserId) {
   }
 }
 
+function isPdfFile(file) {
+  if (!file) return false;
+  return (
+    file.mimetype === "application/pdf" &&
+    /\.pdf$/i.test(file.originalname || "")
+  );
+}
+
+function canAccessProjectHistory(user, project) {
+  if (!user || !project) return false;
+  if (user.role === "admin") return true;
+  if (user.role === "teacher") {
+    return !!project.adviser && String(project.adviser) === String(user._id);
+  }
+  return !!project.owner && String(project.owner) === String(user._id);
+}
+
+function buildTimelineEntryFromActivity(activity) {
+  const meta = activity?.meta || {};
+  const status = String(meta.status || "").toLowerCase();
+
+  if (activity.action === "upload_project") {
+    return {
+      label: "Submission",
+      details: meta.title
+        ? `Submitted "${meta.title}" for review`
+        : "Document submitted for review",
+    };
+  }
+
+  if (activity.action === "revise_project") {
+    if (status === "approved") {
+      return {
+        label: "Approval",
+        details: meta.reason || "Document approved by reviewer",
+      };
+    }
+
+    if (status === "rejected") {
+      return {
+        label: "Rejection",
+        details: meta.reason || "Document rejected by reviewer",
+      };
+    }
+
+    return {
+      label: "Revision",
+      details:
+        meta.reason ||
+        meta.title ||
+        "Submission updated and sent back for review",
+    };
+  }
+
+  if (activity.action === "download_pdf") {
+    return {
+      label: "Download",
+      details: meta.title ? `Downloaded "${meta.title}"` : "Document downloaded",
+    };
+  }
+
+  if (activity.action === "delete_project") {
+    return {
+      label: "Deletion",
+      details: meta.title ? `Deleted "${meta.title}"` : "Document deleted",
+    };
+  }
+
+  if (activity.action === "restore_project_backup") {
+    return {
+      label: "Restore",
+      details: meta.title ? `Restored "${meta.title}"` : "Document restored",
+    };
+  }
+
+  return {
+    label: activity.action,
+    details: meta,
+  };
+}
+
+async function createDocumentVersionSnapshot(project, user, changeNotes = "") {
+  if (!project?._id || !user?._id) return null;
+
+  const latest = await DocumentVersion.findOne({ project: project._id })
+    .sort({ versionNumber: -1 })
+    .select("versionNumber")
+    .lean();
+
+  const versionNumber = Number(latest?.versionNumber || 0) + 1;
+
+  return DocumentVersion.create({
+    project: project._id,
+    fileUrl: project.fileUrl || null,
+    cloudinaryPublicId: project.cloudinaryPublicId || null,
+    filePath: project.filePath || null,
+    fileSize: project.fileSize || null,
+    mimeType: project.mimeType || null,
+    versionNumber,
+    title: project.title || "",
+    abstract: project.abstract || "",
+    uploadedBy: user._id,
+    uploadedByName: user.fullName || user.name || user.email || "",
+    changeNotes,
+    statusAtVersion: project.status || "pending",
+  });
+}
+
 /* ---------- CREATE PROJECT ---------- */
 export const createProject = async (req, res) => {
   try {
@@ -152,7 +263,7 @@ export const createProject = async (req, res) => {
         .json({ success: false, message: "No file uploaded" });
     }
 
-    if (req.file.mimetype !== "application/pdf") {
+    if (!isPdfFile(req.file)) {
       return res.status(415).json({
         success: false,
         message: "Only PDF files are allowed",
@@ -229,6 +340,8 @@ export const createProject = async (req, res) => {
       fileSize: req.file.size,
     });
 
+    await createDocumentVersionSnapshot(project, req.user, "Initial submission");
+
     await logActivity(
       req,
       "upload_project",
@@ -295,50 +408,102 @@ export const updateProject = async (req, res) => {
       status,
     } = req.body;
 
-    const update = {};
+    if (req.fileValidationError) {
+      return res.status(415).json({
+        message: req.fileValidationError,
+      });
+    }
 
-    if (title) update.title = title;
-    if (category) update.category = category;
-    if (year) update.year = year;
-    if (abstract) update.abstract = abstract;
-    if (department) update.department = department;
-    if (status) update.status = status;
+    const existingProject = await Project.findById(id);
+    if (!existingProject) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    const update = {};
+    let changed = false;
+
+    if (title && title !== existingProject.title) {
+      update.title = title;
+      changed = true;
+    }
+    if (category && category !== existingProject.category) {
+      update.category = category;
+      changed = true;
+    }
+    if (year && Number(year) !== Number(existingProject.year)) {
+      update.year = year;
+      changed = true;
+    }
+    if (abstract && abstract !== existingProject.abstract) {
+      update.abstract = abstract;
+      changed = true;
+    }
+    if (department && department !== existingProject.department) {
+      update.department = department;
+      changed = true;
+    }
+    if (status && status !== existingProject.status) {
+      update.status = status;
+      changed = true;
+    }
 
     if (authors) {
-      if (Array.isArray(authors)) {
-        update.authors = authors;
-      } else {
-        update.authors = String(authors)
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean);
+      const nextAuthors = Array.isArray(authors)
+        ? authors
+        : String(authors)
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+
+      if (
+        JSON.stringify(nextAuthors) !== JSON.stringify(existingProject.authors || [])
+      ) {
+        update.authors = nextAuthors;
+        changed = true;
       }
     }
 
     if (keywords) {
-      update.tags = String(keywords)
+      const nextTags = String(keywords)
         .split(",")
         .map((s) => s.trim().toLowerCase())
         .filter(Boolean);
+
+      if (JSON.stringify(nextTags) !== JSON.stringify(existingProject.tags || [])) {
+        update.tags = nextTags;
+        changed = true;
+      }
     }
 
     if (typeof adviser !== "undefined") {
       if (!adviser) {
-        update.adviser = null;
-        update.adviserName = "";
+        if (existingProject.adviser || existingProject.adviserName) {
+          update.adviser = null;
+          update.adviserName = "";
+          changed = true;
+        }
       } else {
         const adviserUser = await getAdviserUser(adviser);
-        update.adviser = adviserUser?._id || null;
-        update.adviserName =
+        const nextAdviser = adviserUser?._id || null;
+        const nextAdviserName =
           adviserUser?.fullName ||
           adviserUser?.name ||
           adviserUser?.email ||
           "";
+
+        if (
+          String(existingProject.adviser || "") !== String(nextAdviser || "") ||
+          String(existingProject.adviserName || "") !== String(nextAdviserName || "")
+        ) {
+          update.adviser = nextAdviser;
+          update.adviserName = nextAdviserName;
+          changed = true;
+        }
       }
     }
 
     if (req.file) {
-      if (req.file.mimetype !== "application/pdf") {
+      if (!isPdfFile(req.file)) {
         return res.status(400).json({ message: "Only PDF files are allowed" });
       }
 
@@ -349,6 +514,7 @@ export const updateProject = async (req, res) => {
       update.filePath = null;
       update.mimeType = req.file.mimetype;
       update.fileSize = req.file.size;
+      changed = true;
 
       try {
         const driveMeta = await backupPdfToGoogleDrive(req.file);
@@ -367,10 +533,39 @@ export const updateProject = async (req, res) => {
       }
     }
 
-    const project = await Project.findByIdAndUpdate(id, update, { new: true });
-    if (!project) {
-      return res.status(404).json({ message: "Project not found" });
+    const isStudentOwner =
+      req.user?.role === "student" &&
+      existingProject.owner &&
+      String(existingProject.owner) === String(req.user._id);
+
+    if (changed && isStudentOwner) {
+      update.status = "pending";
+      update.reviewedBy = null;
+      update.reviewedByName = "";
     }
+
+    if (!Object.keys(update).length) {
+      return res.json(existingProject);
+    }
+
+    const project = await Project.findByIdAndUpdate(id, update, { new: true });
+
+    await createDocumentVersionSnapshot(
+      project,
+      req.user,
+      isStudentOwner ? "Student updated submission" : "Project updated"
+    );
+
+    await logActivity(
+      req,
+      "revise_project",
+      {
+        projectId: String(project._id),
+        title: project.title || "",
+        status: project.status || "",
+      },
+      req.user || null
+    );
 
     return res.json(project);
   } catch (err) {
@@ -499,6 +694,12 @@ export const restoreMyDeletedProject = async (req, res) => {
       ...data,
       owner: backup.owner || ownerId,
     });
+
+    await createDocumentVersionSnapshot(
+      restoredProject,
+      req.user,
+      "Restored from deleted backup"
+    );
 
     backup.isRestored = true;
     backup.restoredAt = new Date();
@@ -636,6 +837,124 @@ export const getPublicProjectStats = async (req, res) => {
     console.error("Get public project stats error:", err);
     return res.status(500).json({
       message: "Failed to load public stats",
+      error: err.message || "Unknown error",
+    });
+  }
+};
+
+export const getProjectHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const project = await Project.findById(id).lean();
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    if (!canAccessProjectHistory(req.user, project)) {
+      return res.status(403).json({ message: "Not allowed to view this history" });
+    }
+
+    const [versions, comments, activities] = await Promise.all([
+      DocumentVersion.find({ project: id })
+        .sort({ versionNumber: -1, createdAt: -1 })
+        .lean(),
+      Comment.find({ project: id, status: { $ne: "archived" } })
+        .sort({ createdAt: -1 })
+        .select("authorName content status page section createdAt")
+        .lean(),
+      UserActivity.find({
+        $or: [
+          { "meta.projectId": String(id) },
+          { "meta.thesisId": String(id) },
+          { "meta.restoredProjectId": String(id) },
+        ],
+      })
+        .sort({ createdAt: -1 })
+        .lean(),
+    ]);
+
+    const timeline = [
+      ...versions.map((version) => ({
+        type: "version",
+        at: version.createdAt,
+        label: `Version ${version.versionNumber}`,
+        details: version.changeNotes || "Document version saved",
+        data: version,
+      })),
+      ...comments.map((comment) => ({
+        type: "comment",
+        at: comment.createdAt,
+        label: comment.authorName || "Review comment",
+        details: comment.content,
+        data: comment,
+      })),
+      ...activities.map((activity) => {
+        const mapped = buildTimelineEntryFromActivity(activity);
+        return {
+          type: "activity",
+          at: activity.createdAt,
+          label: mapped.label,
+          details: mapped.details,
+          data: activity,
+        };
+      }),
+    ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+
+    return res.json({
+      project,
+      versions,
+      comments,
+      activities,
+      timeline,
+    });
+  } catch (err) {
+    console.error("Get project history error:", err);
+    return res.status(500).json({
+      message: "Failed to load project history",
+      error: err.message || "Unknown error",
+    });
+  }
+};
+
+export const getMyActivityHistory = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    const limit = Math.min(Number(req.query.limit) || 200, 500);
+    const action = String(req.query.action || "").trim();
+
+    const filter = {
+      user: userId,
+      action: {
+        $in: [
+          "upload_project",
+          "revise_project",
+          "delete_project",
+          "restore_project_backup",
+          "download_pdf",
+          "view_details",
+        ],
+      },
+    };
+
+    if (action) {
+      filter.action = action;
+    }
+
+    const activities = await UserActivity.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    return res.json({ activities });
+  } catch (err) {
+    console.error("Get my activity history error:", err);
+    return res.status(500).json({
+      message: "Failed to load activity history",
       error: err.message || "Unknown error",
     });
   }

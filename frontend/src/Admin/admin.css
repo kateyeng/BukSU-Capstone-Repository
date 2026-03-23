@@ -352,15 +352,60 @@
   margin-top: 0.75rem;
 }
 
+.admin-modal-actions-spread {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.65rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease,
+    border-color 0.12s ease, color 0.12s ease;
+}
+
+.admin-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.admin-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
 .admin-btn-primary {
   background: var(--indigo);
   color: #f9fafb;
-  border-radius: 999px;
-  border: none;
-  padding: 0.5rem 1rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
+  border-color: var(--indigo);
+  box-shadow: 0 10px 24px rgba(30, 64, 175, 0.18);
+}
+
+.admin-btn-primary:hover:not(:disabled) {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.admin-btn-secondary {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.admin-btn-secondary:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #94a3b8;
 }
 
 /* ========== USERS TABLE ========== */
@@ -396,9 +441,114 @@
   background: #f9fafb;
 }
 
-.admin-actions {
-  text-align: center;
+.admin-table-actions {
+  text-align: right;
   white-space: nowrap;
+}
+
+.admin-activity-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(140px, 1fr)) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.admin-modal-wide {
+  max-width: 980px;
+}
+
+.admin-activity-modal {
+  padding: 1.5rem;
+}
+
+.admin-activity-subhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  color: #475569;
+  font-size: 0.92rem;
+}
+
+.admin-table-wrapper-scroll {
+  max-height: 460px;
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+
+.admin-log-table {
+  min-width: 760px;
+}
+
+.admin-log-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8fafc;
+}
+
+.admin-log-date {
+  min-width: 165px;
+  white-space: nowrap;
+  vertical-align: top;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-log-action-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  background: #e0e7ff;
+  color: #312e81;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.admin-log-meta {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "Consolas", "SFMono-Regular", Menlo, monospace;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+}
+
+.admin-activity-summary {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-activity-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  border: 1px solid #dbeafe;
+}
+
+.admin-activity-summary-item strong {
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.admin-activity-summary-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
 }
 
 .icon-btn {
@@ -1348,11 +1498,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-left: 6px;
-  padding: 3px 8px;
+  margin-top: 6px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 4px 10px;
   border-radius: 999px;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 600;
+  width: fit-content;
 }
 
 .capstone-lock-pill-me {
@@ -1367,9 +1520,16 @@
 
 /* Text that appears instead of buttons */
 .capstone-lock-actions {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: #6b7280;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
 }
 
 .admin-input {
@@ -1382,4 +1542,126 @@
 }
 .admin-input:focus {
   border-color: #2563eb;
+}
+
+.capstone-table th:nth-child(1),
+.capstone-table td:nth-child(1) {
+  min-width: 220px;
+}
+
+.capstone-table th:nth-child(8),
+.capstone-table td:nth-child(8) {
+  min-width: 250px;
+  width: 250px;
+}
+
+.capstone-table td:nth-child(6) {
+  min-width: 150px;
+}
+
+.capstone-table td:nth-child(8) {
+  text-align: center;
+}
+
+.status-pill {
+  min-width: 108px;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.08);
+}
+
+.capstone-actions {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: max-content;
+  margin: 0 auto;
+}
+
+.capstone-action-btn {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid #dbe3f0;
+  background: #ffffff;
+  padding: 0;
+  margin: 0;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  font-family: "Segoe UI Symbol", "Noto Sans Symbols", "Segoe UI", sans-serif;
+  flex-shrink: 0;
+}
+
+.capstone-action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+}
+
+.capstone-action-btn:disabled {
+  opacity: 0.45;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.capstone-action-approve {
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+  color: #15803d;
+}
+
+.capstone-action-reject {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.capstone-action-edit {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.capstone-action-view {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.capstone-action-delete {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #be123c;
+}
+
+.capstone-action-btn[title="Open activity log"] {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+  color: #6d28d9;
+}
+
+.capstone-lock-actions {
+  min-width: 88px;
+}
+
+@media (max-width: 920px) {
+  .admin-activity-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-activity-subhead {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .admin-activity-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-modal-actions-spread {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

@@ -9,6 +9,27 @@ const router = express.Router();
 // Only admins
 router.use(protect, requireRole("admin"));
 
+function buildCreatedAtFilter(startDate, endDate) {
+  const createdAt = {};
+
+  if (startDate) {
+    const start = new Date(startDate);
+    if (!Number.isNaN(start.getTime())) {
+      createdAt.$gte = start;
+    }
+  }
+
+  if (endDate) {
+    const end = new Date(endDate);
+    if (!Number.isNaN(end.getTime())) {
+      end.setHours(23, 59, 59, 999);
+      createdAt.$lte = end;
+    }
+  }
+
+  return Object.keys(createdAt).length ? createdAt : null;
+}
+
 /**
  * ✅ CLEAN SUMMARY LIST
  * GET /api/admin/activity/users
@@ -17,8 +38,14 @@ router.use(protect, requireRole("admin"));
 router.get("/users", async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 200, 500);
+    const createdAt = buildCreatedAtFilter(
+      req.query.startDate,
+      req.query.endDate
+    );
+    const matchStage = createdAt ? { createdAt } : {};
 
     const rows = await UserActivity.aggregate([
+      ...(Object.keys(matchStage).length ? [{ $match: matchStage }] : []),
       { $sort: { createdAt: -1 } },
 
       // group by user id (null = unknown)
@@ -58,6 +85,16 @@ router.get("/user/:userId", async (req, res) => {
     if (userId === "unknown") filter.user = null;
     else filter.user = userId;
 
+    const createdAt = buildCreatedAtFilter(
+      req.query.startDate,
+      req.query.endDate
+    );
+    if (createdAt) filter.createdAt = createdAt;
+
+    if (req.query.action) {
+      filter.action = req.query.action;
+    }
+
     const logs = await UserActivity.find(filter)
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -76,11 +113,13 @@ router.get("/user/:userId", async (req, res) => {
  */
 router.get("/", async (req, res) => {
   try {
-    const { role, action, limit = 100 } = req.query;
+    const { role, action, limit = 100, startDate, endDate } = req.query;
 
     const filter = {};
     if (role) filter.role = role;
     if (action) filter.action = action;
+    const createdAt = buildCreatedAtFilter(startDate, endDate);
+    if (createdAt) filter.createdAt = createdAt;
 
     const logs = await UserActivity.find(filter)
       .sort({ createdAt: -1 })

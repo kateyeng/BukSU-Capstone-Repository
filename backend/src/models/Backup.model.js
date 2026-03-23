@@ -12,6 +12,13 @@ const backupSchema = new mongoose.Schema(
         // Local zip path: localPath + ".zip"
         zipPath: { type: String, required: true },
 
+        // Backup engine used to generate the backup
+        format: {
+            type: String,
+            enum: ["mongodump", "json"],
+            default: "mongodump",
+        },
+
         sizeBytes: { type: Number, default: 0 },
         collectionsCount: { type: Number, default: 0 },
 

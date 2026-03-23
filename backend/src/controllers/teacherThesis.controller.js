@@ -28,6 +28,12 @@ function hasActiveLock(doc) {
   return true;
 }
 
+function canManageThesis(user, thesis) {
+  if (!user || !thesis) return false;
+  if (user.role === "admin") return true;
+  return !!thesis.adviser && String(thesis.adviser) === String(user._id);
+}
+
 // GET /api/teacher/thesis?limit=1000
 export async function listTeacherThesis(req, res) {
   try {
@@ -106,13 +112,9 @@ export async function setThesisStatus(req, res) {
     const thesis = await Thesis.findById(id);
     if (!thesis) return res.status(404).json({ message: "Not found" });
 
-    if (
-      thesis.adviser &&
-      String(thesis.adviser) !== String(req.user?._id) &&
-      req.user?.role !== "admin"
-    ) {
+    if (!canManageThesis(req.user, thesis)) {
       return res.status(403).json({
-        message: "You are not allowed to update this thesis.",
+        message: "You can only manage your advisees' documents.",
       });
     }
 
@@ -139,6 +141,7 @@ export async function setThesisStatus(req, res) {
       req,
       "revise_project",
       {
+        projectId: thesis._id.toString(),
         thesisId: thesis._id.toString(),
         title: thesis.title || "",
         status,
@@ -215,13 +218,9 @@ export async function editThesis(req, res) {
 
     if (!thesis) return res.status(404).json({ message: "Not found" });
 
-    if (
-      thesis.adviser &&
-      String(thesis.adviser) !== String(req.user?._id) &&
-      req.user?.role !== "admin"
-    ) {
+    if (!canManageThesis(req.user, thesis)) {
       return res.status(403).json({
-        message: "You are not allowed to edit this thesis.",
+        message: "You can only edit your advisees' documents.",
       });
     }
 
@@ -286,6 +285,7 @@ export async function editThesis(req, res) {
         req,
         "revise_project",
         {
+          projectId: thesis._id.toString(),
           thesisId: thesis._id.toString(),
           title: thesis.title || "",
           changes,
@@ -311,13 +311,9 @@ export async function lockThesis(req, res) {
       return res.status(404).json({ message: "Thesis not found" });
     }
 
-    if (
-      thesis.adviser &&
-      String(thesis.adviser) !== String(req.user?._id) &&
-      req.user?.role !== "admin"
-    ) {
+    if (!canManageThesis(req.user, thesis)) {
       return res.status(403).json({
-        message: "You are not allowed to lock this thesis.",
+        message: "You can only edit your advisees' documents.",
       });
     }
 
@@ -366,13 +362,9 @@ export async function unlockThesis(req, res) {
       return res.status(404).json({ message: "Thesis not found" });
     }
 
-    if (
-      thesis.adviser &&
-      String(thesis.adviser) !== String(req.user?._id) &&
-      req.user?.role !== "admin"
-    ) {
+    if (!canManageThesis(req.user, thesis)) {
       return res.status(403).json({
-        message: "You are not allowed to unlock this thesis.",
+        message: "You can only edit your advisees' documents.",
       });
     }
 

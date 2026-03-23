@@ -100,6 +100,16 @@ export default function Sidebar({ onLogout, onNavigate }) {
           </NavLink>
         )}
 
+        {can.thesisView && (
+          <NavLink
+            to="/teacher/advisees"
+            className={({ isActive }) => (isActive ? "active" : undefined)}
+            onClick={() => handleNavClick("advisees")}
+          >
+            Advisees
+          </NavLink>
+        )}
+
         <NavLink
           to="/teacher/profile"
           className={({ isActive }) =>

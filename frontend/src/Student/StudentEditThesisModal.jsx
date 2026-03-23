@@ -15,6 +15,7 @@ export default function StudentEditThesisModal({ item, onClose, onSaved }) {
   const [department, setDepartment] = useState(item?.department || "");
   const [abstract, setAbstract] = useState(item?.abstract || "");
   const [keywords, setKeywords] = useState((item?.tags || []).join(", "));
+  const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const [teachers, setTeachers] = useState([]);
@@ -63,22 +64,31 @@ export default function StudentEditThesisModal({ item, onClose, onSaved }) {
     setSaving(true);
 
     try {
-      const body = {
-        title,
-        category,
-        year,
-        abstract,
-        authors,
-        adviser,
-        department,
-        keywords,
-      };
+      if (file) {
+        const isPdf =
+          file.type === "application/pdf" && /\.pdf$/i.test(file.name || "");
+        if (!isPdf) {
+          throw new Error("Only PDF files are allowed");
+        }
+      }
+
+      const formData = new FormData();
+      formData.append("title", title);
+      formData.append("category", category);
+      formData.append("year", String(year));
+      formData.append("abstract", abstract);
+      formData.append("authors", authors);
+      formData.append("adviser", adviser || "");
+      formData.append("department", department || "");
+      formData.append("keywords", keywords || "");
+      if (file) {
+        formData.append("file", file);
+      }
 
       const res = await fetch(`${API}/api/student/projects/${item._id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(body),
+        body: formData,
       });
 
       if (!res.ok) {
@@ -375,9 +385,37 @@ export default function StudentEditThesisModal({ item, onClose, onSaved }) {
               >
                 Keywords (comma-separated)
               </label>
+                <input
+                  value={keywords}
+                  onChange={(e) => setKeywords(e.target.value)}
+                  style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  border: "1px solid #d1d5db",
+                  fontSize: 14,
+                }}
+                />
+              </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.04,
+                  color: "#6b7280",
+                  display: "block",
+                  marginBottom: 4,
+                }}
+              >
+                Replace PDF (optional)
+              </label>
               <input
-                value={keywords}
-                onChange={(e) => setKeywords(e.target.value)}
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
                 style={{
                   width: "100%",
                   padding: "8px 10px",
@@ -386,6 +424,9 @@ export default function StudentEditThesisModal({ item, onClose, onSaved }) {
                   fontSize: 14,
                 }}
               />
+              <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>
+                Upload a new PDF if you are replacing the current document version.
+              </div>
             </div>
 
             <div style={{ marginBottom: 4 }}>

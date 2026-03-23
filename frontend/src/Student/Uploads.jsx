@@ -17,7 +17,9 @@ function getAuth() {
         return { id: obj._id || obj.id || null, role: obj.role || null };
       }
     }
-  } catch {}
+  } catch {
+    return { id: null, role: null };
+  }
   return { id: null, role: null };
 }
 
@@ -101,8 +103,10 @@ export default function Upload({
   }, []);
 
   const validateFile = (f) => {
-    if (f.type !== "application/pdf") {
-      toast.error("Please upload a PDF file.");
+    const isPdfMime = f.type === "application/pdf";
+    const isPdfName = /\.pdf$/i.test(f.name || "");
+    if (!isPdfMime || !isPdfName) {
+      toast.error("Only PDF files are allowed.");
       return false;
     }
     if (f.size > 50 * 1024 * 1024) {

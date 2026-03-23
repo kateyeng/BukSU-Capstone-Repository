@@ -2,6 +2,7 @@
 import mongoose from "mongoose";
 import User from "../models/user.model.js";
 import Project from "../models/project.model.js";
+import { logActivity } from "../utils/activityLogger.js";
 
 const LOCK_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -98,6 +99,17 @@ export async function updateUserBasic(req, res) {
 
         await user.save();
 
+        await logActivity(
+            req,
+            "update_user",
+            {
+                targetUserId: String(user._id),
+                fullName: user.fullName,
+                email: user.email,
+            },
+            req.user
+        );
+
         res.json({
             message: "User updated successfully",
             user: toAdminUserDTO(user),
@@ -130,8 +142,20 @@ export async function updateUserRole(req, res) {
         const user = await User.findById(id);
         if (!user) return res.status(404).json({ message: "User not found" });
 
+        const previousRole = user.role;
         user.role = role;
         await user.save();
+
+        await logActivity(
+            req,
+            "role_modified",
+            {
+                targetUserId: String(user._id),
+                from: previousRole,
+                to: role,
+            },
+            req.user
+        );
 
         res.json({
             message: "User role updated successfully",
@@ -159,6 +183,17 @@ export async function deleteUser(req, res) {
 
         const user = await User.findByIdAndDelete(id);
         if (!user) return res.status(404).json({ message: "User not found" });
+
+        await logActivity(
+            req,
+            "delete_user",
+            {
+                targetUserId: String(user._id),
+                email: user.email,
+                role: user.role,
+            },
+            req.user
+        );
 
         res.json({ message: "User deleted successfully" });
     } catch (err) {

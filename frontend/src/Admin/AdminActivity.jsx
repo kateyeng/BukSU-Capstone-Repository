@@ -1,5 +1,5 @@
 // src/Admin/AdminActivity.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../api/axios";
 
 const ACTION_LABELS = {
@@ -8,37 +8,78 @@ const ACTION_LABELS = {
   login_failed: "Login Failed",
   view_details: "View Details",
   download_pdf: "Download PDF",
+  backup_create: "Backup Created",
+  backup_restore: "Backup Restored",
+  backup_delete: "Backup Deleted",
+  role_modified: "Role Modified",
+  update_user: "User Updated",
+  delete_user: "User Deleted",
+  password_change: "Password Changed",
+  security_event: "Security Event",
 };
+
+function formatLogDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatMeta(meta) {
+  if (!meta) return "No details recorded.";
+  if (typeof meta !== "object") return String(meta);
+
+  return Object.entries(meta)
+    .map(([key, value]) => {
+      const label = key.replace(/_/g, " ");
+      const content =
+        value && typeof value === "object" ? JSON.stringify(value) : String(value);
+      return `${label}: ${content}`;
+    })
+    .join("\n");
+}
 
 export default function AdminActivity() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-
-  // summary list (one row per user)
   const [users, setUsers] = useState([]);
-
-  // modal detail logs
   const [openUser, setOpenUser] = useState(null);
   const [userLogs, setUserLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(false);
-
-  // search/filter for summary list
   const [search, setSearch] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [actionFilter, setActionFilter] = useState("");
 
-  async function fetchUsers() {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     setErr("");
+
     try {
       const res = await api.get("/api/admin/activity/users", {
+        params: {
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+        },
         withCredentials: true,
       });
       setUsers(res.data.users || []);
-    } catch (e) {
-      setErr(e.response?.data?.message || e.message || "Failed to load activity users");
+    } catch (error) {
+      setErr(
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to load activity users"
+      );
     } finally {
       setLoading(false);
     }
-  }
+  }, [endDate, startDate]);
 
   async function openLogsFor(userRow) {
     setOpenUser(userRow);
@@ -48,10 +89,15 @@ export default function AdminActivity() {
     try {
       const id = userRow?._id ? String(userRow._id) : "unknown";
       const res = await api.get(`/api/admin/activity/user/${id}?limit=300`, {
+        params: {
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+          action: actionFilter || undefined,
+        },
         withCredentials: true,
       });
       setUserLogs(res.data.logs || []);
-    } catch (e) {
+    } catch {
       setUserLogs([]);
     } finally {
       setLogsLoading(false);
@@ -82,30 +128,34 @@ export default function AdminActivity() {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `activity_${openUser.fullName}_${new Date().toISOString().split("T")[0]}.pdf`);
+      link.setAttribute(
+        "download",
+        `activity_${openUser.fullName}_${new Date().toISOString().split("T")[0]}.pdf`
+      );
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
       window.URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error("Export error:", e);
+    } catch (error) {
+      console.error("Export error:", error);
       alert("Failed to export PDF");
     }
   }
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   const filteredUsers = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return users;
 
-    return users.filter((u) => {
-      const name = (u.fullName || "").toLowerCase();
-      const email = (u.email || "").toLowerCase();
-      const role = (u.role || "").toLowerCase();
-      const action = (u.lastAction || "").toLowerCase();
+    return users.filter((user) => {
+      const name = (user.fullName || "").toLowerCase();
+      const email = (user.email || "").toLowerCase();
+      const role = (user.role || "").toLowerCase();
+      const action = (user.lastAction || "").toLowerCase();
+
       return (
         name.includes(q) ||
         email.includes(q) ||
@@ -119,9 +169,8 @@ export default function AdminActivity() {
     <div>
       <h2 className="admin-heading">Activity Logs</h2>
 
-      {/* Toolbar */}
       <div className="admin-card" style={{ padding: 16, marginBottom: 16 }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+        <div className="admin-activity-toolbar">
           <input
             className="admin-input"
             placeholder="Search name, email, role, last action..."
@@ -129,17 +178,40 @@ export default function AdminActivity() {
             onChange={(e) => setSearch(e.target.value)}
             style={{ flex: 1 }}
           />
+          <input
+            type="date"
+            className="admin-input"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+          <input
+            type="date"
+            className="admin-input"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+          <select
+            className="admin-input"
+            value={actionFilter}
+            onChange={(e) => setActionFilter(e.target.value)}
+            style={{ maxWidth: 220 }}
+          >
+            <option value="">All actions</option>
+            <option value="login_failed">Security: Login Failed</option>
+            <option value="password_change">Password Changes</option>
+            <option value="backup_create">Backup Created</option>
+            <option value="backup_restore">Backup Restored</option>
+          </select>
           <button className="admin-btn admin-btn-primary" onClick={fetchUsers}>
             Refresh
           </button>
         </div>
       </div>
 
-      {/* Content */}
       <div className="admin-card">
         <div className="admin-table-wrapper">
           {loading ? (
-            <div style={{ padding: 16 }}>Loading…</div>
+            <div style={{ padding: 16 }}>Loading...</div>
           ) : err ? (
             <div style={{ padding: 16, color: "#b91c1c" }}>{err}</div>
           ) : filteredUsers.length === 0 ? (
@@ -158,22 +230,24 @@ export default function AdminActivity() {
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.map((u) => (
-                  <tr key={String(u._id) || "unknown"}>
-                    <td>{u.fullName || "—"}</td>
-                    <td>{u.email || "—"}</td>
+                {filteredUsers.map((user) => (
+                  <tr key={String(user._id) || "unknown"}>
+                    <td>{user.fullName || "-"}</td>
+                    <td>{user.email || "-"}</td>
                     <td>
-                      <span className={`admin-role-pill-tag role-${(u.role || "").toLowerCase()}`}>
-                        {(u.role || "—").toUpperCase()}
+                      <span
+                        className={`admin-role-pill-tag role-${(user.role || "").toLowerCase()}`}
+                      >
+                        {(user.role || "-").toUpperCase()}
                       </span>
                     </td>
-                    <td>{ACTION_LABELS[u.lastAction] || u.lastAction || "—"}</td>
-                    <td>{u.lastAt ? new Date(u.lastAt).toLocaleString("en-PH") : "—"}</td>
-                    <td>{u.total || 0}</td>
+                    <td>{ACTION_LABELS[user.lastAction] || user.lastAction || "-"}</td>
+                    <td>{user.lastAt ? formatLogDate(user.lastAt) : "-"}</td>
+                    <td>{user.total || 0}</td>
                     <td className="admin-table-actions">
                       <button
                         className="admin-btn admin-btn-secondary"
-                        onClick={() => openLogsFor(u)}
+                        onClick={() => openLogsFor(user)}
                       >
                         View Activity
                       </button>
@@ -186,25 +260,32 @@ export default function AdminActivity() {
         </div>
       </div>
 
-      {/* Modal */}
       {openUser && (
         <div className="admin-modal-backdrop" onClick={closeModal}>
-          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="admin-modal admin-modal-wide admin-activity-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="admin-modal-title">
-              Activity — {openUser.fullName || "Unknown User"}
+              Activity - {openUser.fullName || "Unknown User"}
             </h3>
 
-            <div style={{ marginBottom: 12, color: "#555" }}>
-              {openUser.email || "—"} • {(openUser.role || "—").toUpperCase()}
+            <div className="admin-activity-subhead">
+              <span>{openUser.email || "-"}</span>
+              <span
+                className={`admin-role-pill-tag role-${(openUser.role || "").toLowerCase()}`}
+              >
+                {(openUser.role || "-").toUpperCase()}
+              </span>
             </div>
 
-            <div className="admin-table-wrapper" style={{ maxHeight: 420, overflow: "auto" }}>
+            <div className="admin-table-wrapper admin-table-wrapper-scroll">
               {logsLoading ? (
-                <div style={{ padding: 16 }}>Loading logs…</div>
+                <div style={{ padding: 16 }}>Loading logs...</div>
               ) : userLogs.length === 0 ? (
                 <div style={{ padding: 16 }}>No logs for this user.</div>
               ) : (
-                <table className="admin-table">
+                <table className="admin-table admin-log-table">
                   <thead>
                     <tr>
                       <th>Date</th>
@@ -213,12 +294,18 @@ export default function AdminActivity() {
                     </tr>
                   </thead>
                   <tbody>
-                    {userLogs.map((l) => (
-                      <tr key={l._id}>
-                        <td>{new Date(l.createdAt).toLocaleString("en-PH")}</td>
-                        <td>{ACTION_LABELS[l.action] || l.action}</td>
-                        <td style={{ color: "#555" }}>
-                          {l.meta ? JSON.stringify(l.meta) : "—"}
+                    {userLogs.map((log) => (
+                      <tr key={log._id}>
+                        <td className="admin-log-date">
+                          {formatLogDate(log.createdAt)}
+                        </td>
+                        <td>
+                          <span className="admin-log-action-pill">
+                            {ACTION_LABELS[log.action] || log.action}
+                          </span>
+                        </td>
+                        <td>
+                          <pre className="admin-log-meta">{formatMeta(log.meta)}</pre>
                         </td>
                       </tr>
                     ))}
@@ -227,7 +314,20 @@ export default function AdminActivity() {
               )}
             </div>
 
-            <div className="admin-modal-actions">
+            {userLogs.length > 0 && (
+              <div className="admin-activity-summary">
+                <div className="admin-activity-summary-item">
+                  <span className="admin-activity-summary-label">Latest IP</span>
+                  <strong>{userLogs[0]?.ip || "-"}</strong>
+                </div>
+                <div className="admin-activity-summary-item">
+                  <span className="admin-activity-summary-label">Device</span>
+                  <strong>{userLogs[0]?.userAgent || "-"}</strong>
+                </div>
+              </div>
+            )}
+
+            <div className="admin-modal-actions admin-modal-actions-spread">
               <button className="admin-btn admin-btn-primary" onClick={handleExportPDF}>
                 Export as PDF
               </button>
