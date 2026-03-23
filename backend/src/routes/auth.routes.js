@@ -13,6 +13,7 @@ import {
   forgotPasswordUser,
   resetPasswordUser,
   verifyResetCode,
+  changePasswordUser,
 } from "../controllers/auth/passwordController.js";
 
 import { protect } from "../middleware/auth.js";
@@ -115,6 +116,7 @@ router.get("/verify-email", verifyEmail);
 router.post("/forgotPassword", forgotPasswordUser);
 router.post("/verifyCode", verifyResetCode);
 router.post("/resetPassword", resetPasswordUser);
+router.post("/change-password", protect, changePasswordUser);
 
 /* =========================================================
    Google OAuth routes

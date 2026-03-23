@@ -7,6 +7,8 @@ import {
   getMyProjects,
   lockMyProject,
   unlockMyProject,
+  getProjectHistory,
+  getMyActivityHistory,
   getMyDeletedProjectBackups,
   restoreMyDeletedProject,
 } from "../controllers/project.controller.js";
@@ -51,6 +53,20 @@ router.get(
   protect,
   requirePermission("project", "download"),
   downloadProject
+);
+
+router.get(
+  "/activity",
+  protect,
+  requirePermission("project", "read"),
+  getMyActivityHistory
+);
+
+router.get(
+  "/projects/:id/history",
+  protect,
+  requirePermission("project", "read"),
+  getProjectHistory
 );
 
 router.post(

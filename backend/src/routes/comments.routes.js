@@ -121,6 +121,17 @@ router.patch("/:id", async (req, res, next) => {
     await comment.save();
     await comment.populate("author", "fullName email");
 
+    await logActivity(
+      req,
+      "resolve_comment",
+      {
+        projectId: String(comment.project),
+        commentId: String(comment._id),
+        status: comment.status,
+      },
+      req.user
+    );
+
     res.json({ comment });
   } catch (err) {
     next(err);
@@ -149,6 +160,16 @@ router.delete("/:id", async (req, res, next) => {
     }
 
     await comment.deleteOne();
+
+    await logActivity(
+      req,
+      "delete_comment",
+      {
+        projectId: String(comment.project),
+        commentId: String(comment._id),
+      },
+      req.user
+    );
 
     res.json({ message: "Comment deleted" });
   } catch (err) {

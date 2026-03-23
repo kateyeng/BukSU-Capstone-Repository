@@ -2,7 +2,10 @@
 import multer from "multer";
 
 function pdfFilter(req, file, cb) {
-  if (file.mimetype === "application/pdf") {
+  const mimeOk = file.mimetype === "application/pdf";
+  const nameOk = /\.pdf$/i.test(file.originalname || "");
+
+  if (mimeOk && nameOk) {
     cb(null, true);
   } else {
     // 👇 don't throw; just remember the error and skip the file

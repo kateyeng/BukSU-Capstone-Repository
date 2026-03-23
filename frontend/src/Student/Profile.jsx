@@ -122,6 +122,9 @@ export default function Profile({ onLogout = () => {} }) {
       case "upload":
         navigate("/student/uploads");
         break;
+      case "activity":
+        navigate("/student/activity");
+        break;
       case "about":
         navigate("/student/about");
         break;
@@ -149,6 +152,9 @@ export default function Profile({ onLogout = () => {} }) {
   const [search, setSearch] = useState("");
   const [editItem, setEditItem] = useState(null);
   const [previewItem, setPreviewItem] = useState(null);
+  const [historyItem, setHistoryItem] = useState(null);
+  const [historyData, setHistoryData] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarBroken, setAvatarBroken] = useState(false);
@@ -502,6 +508,34 @@ export default function Profile({ onLogout = () => {} }) {
     setEditItem(null);
   }
 
+  async function openHistory(project) {
+    if (!project?._id) return;
+
+    try {
+      setHistoryItem(project);
+      setHistoryLoading(true);
+      setHistoryData(null);
+
+      const res = await fetch(`${API}/api/student/projects/${project._id}/history`, {
+        credentials: "include",
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data?.message || `HTTP ${res.status}`);
+      }
+
+      setHistoryData(data);
+    } catch (err) {
+      console.error("[STUDENT][HISTORY][ERROR]", err);
+      toast.error(err.message || "Failed to load thesis history.");
+      setHistoryItem(null);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
   return (
     <>
       <StudentNavbar onLogout={onLogout} onNavigate={handleNavigate} user={me} />
@@ -770,7 +804,7 @@ export default function Profile({ onLogout = () => {} }) {
               </p>
             </div>
 
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -799,6 +833,23 @@ export default function Profile({ onLogout = () => {} }) {
                 }}
               >
                 {loadingProjects ? "Refreshing…" : "Refresh"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleNavigate("activity")}
+                style={{
+                  borderRadius: 999,
+                  border: "1px solid #dbeafe",
+                  padding: "6px 14px",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  background: "#eff6ff",
+                  color: "#1d4ed8",
+                  cursor: "pointer",
+                }}
+              >
+                Activity History
               </button>
             </div>
           </header>
@@ -929,6 +980,22 @@ export default function Profile({ onLogout = () => {} }) {
                               📄 View PDF
                             </button>
                           )}
+
+                          <button
+                            type="button"
+                            onClick={() => openHistory(p)}
+                            style={{
+                              borderRadius: 999,
+                              border: "1px solid #dbeafe",
+                              padding: "5px 10px",
+                              fontSize: 12,
+                              background: "#eff6ff",
+                              color: "#1d4ed8",
+                              cursor: "pointer",
+                            }}
+                          >
+                            History
+                          </button>
 
                           {canDeleteProject && (
                             <button
@@ -1104,6 +1171,163 @@ export default function Profile({ onLogout = () => {} }) {
               setEditItem(null);
             }}
           />
+        )}
+
+        {historyItem && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15,23,42,0.55)",
+              zIndex: 1400,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 16,
+            }}
+            onClick={() => {
+              setHistoryItem(null);
+              setHistoryData(null);
+            }}
+          >
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 860,
+                maxHeight: "80vh",
+                overflow: "auto",
+                background: "#fff",
+                borderRadius: 18,
+                boxShadow: "0 20px 50px rgba(15,23,42,0.25)",
+                padding: 20,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 16,
+                }}
+              >
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 18 }}>{historyItem.title}</h3>
+                  <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
+                    Version history, adviser feedback, and submission timeline.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHistoryItem(null);
+                    setHistoryData(null);
+                  }}
+                  style={{
+                    border: "none",
+                    background: "#111827",
+                    color: "#fff",
+                    borderRadius: 999,
+                    padding: "6px 12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+
+              {historyLoading ? (
+                <div style={{ color: "#6b7280" }}>Loading history…</div>
+              ) : !historyData ? null : (
+                <div style={{ display: "grid", gap: 18 }}>
+                  <section>
+                    <h4 style={{ marginBottom: 8 }}>Version History</h4>
+                    {historyData.versions?.length ? (
+                      <div style={{ display: "grid", gap: 10 }}>
+                        {historyData.versions.map((version) => (
+                          <div
+                            key={version._id}
+                            style={{
+                              border: "1px solid #e5e7eb",
+                              borderRadius: 12,
+                              padding: "10px 12px",
+                            }}
+                          >
+                            <div style={{ fontWeight: 600 }}>
+                              Version {version.versionNumber}
+                            </div>
+                            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
+                              {new Date(version.createdAt).toLocaleString()} •{" "}
+                              {version.uploadedByName || "Unknown uploader"}
+                            </div>
+                            <div style={{ marginTop: 6, fontSize: 13 }}>
+                              {version.changeNotes || "Document version saved"}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ color: "#6b7280", fontSize: 13 }}>
+                        No saved versions yet.
+                      </div>
+                    )}
+                  </section>
+
+                  <section>
+                    <h4 style={{ marginBottom: 8 }}>Submission Timeline</h4>
+                    {historyData.timeline?.length ? (
+                      <div style={{ display: "grid", gap: 10 }}>
+                        {historyData.timeline.map((entry, index) => (
+                          <div
+                            key={`${entry.type}-${entry.at}-${index}`}
+                            style={{
+                              borderLeft: "3px solid #1d4ed8",
+                              paddingLeft: 12,
+                            }}
+                          >
+                            <div style={{ fontWeight: 600 }}>
+                              {String(entry.label || entry.type).replace(/_/g, " ")}
+                            </div>
+                            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                              {new Date(entry.at).toLocaleString()}
+                            </div>
+                            {entry.data?.fullName ||
+                            entry.data?.uploadedByName ||
+                            entry.data?.authorName ? (
+                              <div
+                                style={{
+                                  marginTop: 4,
+                                  fontSize: 12,
+                                  color: "#4b5563",
+                                }}
+                              >
+                                By{" "}
+                                {entry.data?.fullName ||
+                                  entry.data?.uploadedByName ||
+                                  entry.data?.authorName}
+                                {entry.data?.role
+                                  ? ` (${String(entry.data.role).toUpperCase()})`
+                                  : ""}
+                              </div>
+                            ) : null}
+                            <div style={{ marginTop: 4, fontSize: 13, color: "#374151" }}>
+                              {typeof entry.details === "string"
+                                ? entry.details
+                                : JSON.stringify(entry.details)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ color: "#6b7280", fontSize: 13 }}>
+                        No activity timeline yet.
+                      </div>
+                    )}
+                  </section>
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         <section

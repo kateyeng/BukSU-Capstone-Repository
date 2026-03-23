@@ -119,6 +119,15 @@ export default function TeacherDashboard() {
                 Activity Log
               </button>
             )}
+
+            {can.thesisView && (
+              <button
+                className="btn"
+                onClick={() => navigate("/teacher/advisees")}
+              >
+                View Advisees
+              </button>
+            )}
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 import express from "express";
 import { protect } from "../middleware/auth.js";
 import NotificationSettings from "../models/notificationSettings.model.js";
+import { logActivity } from "../utils/activityLogger.js";
 
 const router = express.Router();
 
@@ -63,6 +64,13 @@ router.patch("/settings", async (req, res, next) => {
       Object.assign(settings, updates);
       await settings.save();
     }
+
+    await logActivity(
+      req,
+      "notification_settings_update",
+      { updates },
+      req.user
+    );
 
     res.json({
       message: "Notification settings updated",

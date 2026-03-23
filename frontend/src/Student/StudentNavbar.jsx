@@ -25,7 +25,9 @@ export default function StudentNavbar({
     try {
       const raw = localStorage.getItem("user");
       if (raw) setUser(JSON.parse(raw));
-    } catch {}
+    } catch (err) {
+      console.error("[STUDENT][NAVBAR][LOCAL_USER][ERROR]", err);
+    }
   }, [userProp]);
 
   useEffect(() => {
@@ -40,7 +42,9 @@ export default function StudentNavbar({
         if (!res.ok) return;
         const data = await res.json();
         if (!abort) setUser(data?.user || data);
-      } catch {}
+      } catch (err) {
+        console.error("[STUDENT][NAVBAR][ME][ERROR]", err);
+      }
     }
 
     fetchMe();
@@ -58,6 +62,7 @@ export default function StudentNavbar({
     )
       activeKey = "browse";
     else if (pathname.startsWith("/student/uploads")) activeKey = "upload";
+    else if (pathname.startsWith("/student/activity")) activeKey = "activity";
     else if (pathname.startsWith("/student/about")) activeKey = "about";
     else if (pathname.startsWith("/student/contact")) activeKey = "contact";
     else if (pathname.startsWith("/student/profile")) activeKey = "profile";
@@ -110,6 +115,10 @@ export default function StudentNavbar({
             Upload
           </a>
         )}
+
+        <a href="#" className={isActive("activity")} onClick={go("activity")}>
+          Activity
+        </a>
 
         <a href="#" className={isActive("about")} onClick={go("about")}>
           About

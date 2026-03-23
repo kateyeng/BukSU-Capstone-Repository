@@ -27,21 +27,27 @@ import StudentContact from "./Student/Contact.jsx";
 import StudentProfile from "./Student/Profile.jsx";
 import StudentUploads from "./Student/Uploads.jsx";
 import StudentBookmarks from "./Student/Bookmarks.jsx";
+import StudentActivity from "./Student/Activity.jsx";
 
 /* ===== Teacher ===== */
 import TeacherDashboard from "./Teacher/Dashboard.jsx";
 import TeacherThesis from "./Teacher/Thesis.jsx";
 import TeacherActivity from "./Teacher/Activity.jsx";
+import TeacherAdvisees from "./Teacher/Advisees.jsx";
 import TeacherProfile from "./Teacher/Profile.jsx";
 
 /* ===== Admin ===== */
 import AdminLayout from "./Admin/adminLayout.jsx";
 import AdminDashboard from "./Admin/adminDashboard.jsx";
 import AdminUsers from "./Admin/adminUsers.jsx";
+import AdminTeachersPanel from "./Admin/AdminTeachersPanel.jsx";
+import AdminStudentsPanel from "./Admin/AdminStudentsPanel.jsx";
 import RolePermissions from "./Admin/RolePermissions.jsx";
 import Capstone from "./Admin/Capstone.jsx";
 import Backup from "./Admin/Backup.jsx";
 import AdminActivity from "./Admin/AdminActivity.jsx";
+import AdminNotifications from "./Admin/AdminNotifications.jsx";
+import SupportPage from "./Public/Support.jsx";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -115,8 +121,11 @@ const isPrivilegedUser = (user) => !!user && user.role !== "guest";
 
 function RequireRole({ user, roles, children }) {
   const location = useLocation();
-  if (!user || !roles.includes(user.role)) {
+  if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  if (!roles.includes(user.role)) {
+    return <UnauthorizedRedirect user={user} />;
   }
   return children;
 }
@@ -176,6 +185,7 @@ function mapStudentNav(nav, dest, id) {
   if (dest === "dashboard") nav("/student");
   else if (dest === "browse") nav("/student/browse");
   else if (dest === "upload") nav("/student/uploads");
+  else if (dest === "activity") nav("/student/activity");
   else if (dest === "about") nav("/student/about");
   else if (dest === "contact") nav("/student/contact");
   else if (dest === "profile") nav("/student/profile");
@@ -221,6 +231,11 @@ function StudentProfilePage({ onLogout }) {
 function StudentBookmarksPage({ onLogout }) {
   const nav = useNavigate();
   return <StudentBookmarks onLogout={onLogout} onNavigate={(dest, id) => mapStudentNav(nav, dest, id)} />;
+}
+
+function StudentActivityPage({ onLogout }) {
+  const nav = useNavigate();
+  return <StudentActivity onLogout={onLogout} onNavigate={(dest, id) => mapStudentNav(nav, dest, id)} />;
 }
 
 /* ---------- Teacher wrappers ---------- */
@@ -387,6 +402,7 @@ export default function App() {
 
         <Route path="/about" element={<PublicAbout />} />
         <Route path="/contact" element={<PublicContact />} />
+        <Route path="/support" element={user ? <SupportPage role={user.role} /> : <Navigate to="/login" replace />} />
 
         <Route
           path="/login"
@@ -442,6 +458,14 @@ export default function App() {
           element={
             <RequireRole user={user} roles={["student"]}>
               <StudentUploadsPage onLogout={logout} />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/student/activity"
+          element={
+            <RequireRole user={user} roles={["student"]}>
+              <StudentActivityPage onLogout={logout} />
             </RequireRole>
           }
         />
@@ -511,6 +535,14 @@ export default function App() {
           }
         />
         <Route
+          path="/teacher/advisees"
+          element={
+            <RequireRole user={user} roles={["teacher"]}>
+              <TeacherAdvisees onLogout={logout} />
+            </RequireRole>
+          }
+        />
+        <Route
           path="/teacher/profile"
           element={
             <RequireRole user={user} roles={["teacher"]}>
@@ -530,10 +562,13 @@ export default function App() {
           <Route index element={<AdminDashboard />} />
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="users" element={<AdminUsers currentUser={user} />} />
+          <Route path="teachers" element={<AdminTeachersPanel />} />
+          <Route path="students" element={<AdminStudentsPanel />} />
           <Route path="permissions" element={<RolePermissions />} />
           <Route path="capstone" element={<Capstone />} />
           <Route path="backup" element={<Backup />} />
           <Route path="activity" element={<AdminActivity />} />
+          <Route path="notifications" element={<AdminNotifications />} />
         </Route>
 
         <Route path="*" element={<UnauthorizedRedirect user={user} />} />

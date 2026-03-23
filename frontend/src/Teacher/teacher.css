@@ -442,7 +442,7 @@
   color: #6b7280;
 }
 
-/* PRINT: only activity card */
+/* PRINT: only activity card / advisee report */
 
 @media print {
   body * {
@@ -450,7 +450,9 @@
   }
 
   .activity-print-area,
-  .activity-print-area * {
+  .activity-print-area *,
+  .advisee-print-area,
+  .advisee-print-area * {
     visibility: visible !important;
   }
 
@@ -460,6 +462,20 @@
     left: 0;
     width: 100%;
     margin: 0;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .advisee-print-area {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 24px 32px;
+    margin: 0;
+    background: #ffffff;
+    color: #0f172a;
     box-shadow: none;
     border-radius: 0;
   }
@@ -479,6 +495,110 @@
     width: 100%;
     border-collapse: collapse;
   }
+}
+
+.advisee-print-area {
+  display: none;
+}
+
+.advisee-print-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  padding-bottom: 18px;
+  border-bottom: 2px solid #dbeafe;
+}
+
+.advisee-print-kicker {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2563eb;
+  margin-bottom: 8px;
+}
+
+.advisee-print-header h1 {
+  margin: 0 0 10px;
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.advisee-print-header p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.advisee-print-meta {
+  min-width: 180px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  text-align: right;
+}
+
+.advisee-print-meta div {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.advisee-print-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0 24px;
+}
+
+.advisee-print-metric {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 14px 16px;
+  background: #f8fafc;
+}
+
+.advisee-print-metric span {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.advisee-print-metric strong {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.advisee-print-section h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.advisee-print-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.advisee-print-table th,
+.advisee-print-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.advisee-print-table th {
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 /* ===== TEACHER LAYOUT ===== */

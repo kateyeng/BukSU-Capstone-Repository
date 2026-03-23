@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { generateResetCode, generateResetToken, hashResetToken } from '../../utils/passwordReset.js';
 import { sendPasswordResetEmail , sendPasswordChangedEmail } from '../../utils/email.js';
 import { validateStrongPassword } from "../../utils/passwordPolicy.js";
+import { logActivity } from "../../utils/activityLogger.js";
 
 
 export async function forgotPasswordUser (req, res) {
@@ -208,6 +209,110 @@ export async function verifyResetCode(req, res) {
     return res.status(500).json({
       success: false,
       message: "Server error",
+    });
+  }
+}
+
+export async function changePasswordUser(req, res) {
+  try {
+    const userId = req.user?._id;
+    const { currentPassword, newPassword } = req.body || {};
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authenticated",
+      });
+    }
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password and new password are required",
+      });
+    }
+
+    const passwordCheck = validateStrongPassword(newPassword);
+    if (!passwordCheck.ok) {
+      return res.status(400).json({
+        success: false,
+        message: passwordCheck.message,
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (!user.password) {
+      return res.status(400).json({
+        success: false,
+        message: "This account uses Google login only.",
+      });
+    }
+
+    const passwordMatches = await bcrypt.compare(currentPassword, user.password);
+    if (!passwordMatches) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password is incorrect",
+      });
+    }
+
+    const sameAsCurrent = await bcrypt.compare(newPassword, user.password);
+    if (sameAsCurrent) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be different from the current password",
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    const ip =
+      (req.headers['x-forwarded-for']?.split(',')[0] || '').trim() ||
+      req.socket?.remoteAddress ||
+      req.ip ||
+      'Unknown IP';
+
+    const userAgent = req.headers['user-agent'] || 'Unknown device';
+
+    sendPasswordChangedEmail(user.email, user.fullName, {
+      ip,
+      userAgent,
+      when: new Date(),
+    })
+      .then((r) => {
+        if (!r?.success) {
+          console.error('[PasswordChangedEmail] failed:', r?.error);
+        }
+      })
+      .catch((e) => {
+        console.error('[PasswordChangedEmail] unhandled error:', e);
+      });
+
+    await logActivity(
+      req,
+      "password_change",
+      { userId: String(user._id) },
+      user
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Password updated successfully",
+    });
+  } catch (error) {
+    console.error('changePasswordUser error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
     });
   }
 }

@@ -3,6 +3,7 @@ import { protect, requireRole } from "../middleware/auth.js";
 import { requirePermission } from "../middleware/acl.js";
 import Project from "../models/project.model.js";
 import { logActivity } from "../utils/activityLogger.js";
+import { getProjectHistory } from "../controllers/project.controller.js";
 import {
   setThesisStatus,
   editThesis,
@@ -63,6 +64,12 @@ router.get(
   }
 );
 
+router.get(
+  "/thesis/:id/history",
+  requirePermission("thesis", "view"),
+  getProjectHistory
+);
+
 router.patch(
   "/thesis/:id/status",
   requirePermission("thesis", "approve"),
@@ -111,6 +118,7 @@ router.delete("/thesis/:id", async (req, res, next) => {
       req,
       "delete_project",
       {
+        projectId: doc._id.toString(),
         thesisId: doc._id.toString(),
         title: doc.title || "",
       },

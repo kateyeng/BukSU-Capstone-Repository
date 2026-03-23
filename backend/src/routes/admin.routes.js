@@ -73,11 +73,15 @@ router.get(
       const thesis = await Project.find(
         filter,
         // keep department in projection (string or whatever you store)
-        "title category year abstract authors adviser department status createdAt fileUrl cloudinaryPublicId tags editLock"
+        "title category year abstract authors adviser adviserName owner department status createdAt updatedAt fileUrl cloudinaryPublicId tags editLock"
       )
         .populate({
           path: "adviser",
           select: "name fullName firstName lastName department",
+        })
+        .populate({
+          path: "owner",
+          select: "fullName email role",
         })
         .sort({ createdAt: -1 })
         .limit(limit);
