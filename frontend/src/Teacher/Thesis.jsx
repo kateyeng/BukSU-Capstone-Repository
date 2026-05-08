@@ -555,6 +555,7 @@ export default function TeacherThesisPage() {
                     )}
                   </th>
                   <th style={{ width: 360 }}>Title</th>
+                  <th>Student</th>
                   <th>Year</th>
                   <th>Category</th>
                   <th>Authors</th>
@@ -582,6 +583,7 @@ export default function TeacherThesisPage() {
                         />
                       </td>
                       <td>{t.title}</td>
+                      <td>{t.owner?.fullName || t.owner?.name || "-"}</td>
                       <td>{t.year || "—"}</td>
                       <td>{t.category || "—"}</td>
                       <td>{(t.authors || []).join(", ") || "—"}</td>

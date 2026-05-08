@@ -165,7 +165,7 @@ export default function Browse({ onLogout, onNavigate }) {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by title, author, or keyword..."
+              placeholder="Search by title, author, year, or keyword..."
             />
           </div>
 
